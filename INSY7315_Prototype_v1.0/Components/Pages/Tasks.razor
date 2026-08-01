@@ -1,6 +1,7 @@
 @page "/tasks"
 @rendermode InteractiveServer
 @using MudBlazor
+@inject IDialogService DialogService
 
 <PageTitle>Daily Tasks</PageTitle>
 
@@ -111,6 +112,21 @@
         border: 1.5px solid var(--drps-blue-400);
     }
 
+    /* Small dot shown under a day's number when that day has at least
+       one task scheduled, so busy days are visible without clicking
+       into each one (mirrors iOS Calendar's event dots). */
+    .drps-day-dot {
+        width: 4px;
+        height: 4px;
+        border-radius: 50%;
+        background: var(--drps-blue-400);
+        margin-top: -2px;
+    }
+
+    .drps-day-cell.selected .drps-day-dot {
+        background: white;
+    }
+
     /* White card that holds the full hour-by-hour timeline. */
     .drps-timeline {
         background: var(--drps-surface);
@@ -157,7 +173,9 @@
         gap: 8px;
     }
 
-    /* A single scheduled task "chip" shown inside an hour row. */
+    /* A single scheduled task "chip" shown inside an hour row. Border
+       color defaults to the standard blue accent, but is overridden per
+       priority level below (High/Medium/Low). */
     .drps-task-card {
         border-radius: 8px;
         padding: 8px 14px;
@@ -169,6 +187,24 @@
         gap: 12px;
         width: 280px;      /* fixed width so cards line up neatly when wrapping */
         flex-shrink: 0;
+    }
+
+    /* Priority accent colors: red for urgent/high, amber for medium,
+       and the standard DRPS blue for low - so urgency reads at a
+       glance without needing to read the text. */
+    .drps-task-card.priority-high {
+        border-left-color: #E0435C;
+        background: #FCEEF0;
+    }
+
+    .drps-task-card.priority-medium {
+        border-left-color: #D98C1F;
+        background: #FBF2E6;
+    }
+
+    .drps-task-card.priority-low {
+        border-left-color: var(--drps-blue-500);
+        background: #EEF2FC;
     }
 
     /* Faded look once a task is marked complete. */
@@ -226,6 +262,116 @@
         font-size: 0.75rem;
         justify-content: center;
     }
+
+    /* Small key explaining what the priority accent colors mean,
+       shown above the timeline. */
+    .drps-legend {
+        display: flex;
+        gap: 16px;
+        margin-bottom: 12px;
+    }
+
+    .drps-legend-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.72rem;
+        color: var(--drps-text-muted);
+    }
+
+    .drps-legend-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+
+    /* Bar above the hourly timeline for tasks that aren't tied to a
+       specific hour (e.g. "due by end of day"), similar to the
+       all-day row at the top of an iOS Calendar day view. */
+    .drps-allday-bar {
+        background: var(--drps-surface);
+        border-radius: 12px;
+        padding: 12px 16px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+    }
+
+    /* "ALL DAY" label to the left of the chips. */
+    .drps-allday-label {
+        font-size: 0.7rem;
+        color: var(--drps-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-right: 4px;
+    }
+
+    /* Pill-shaped chip for a single all-day task. Priority color
+       classes below reuse the same red/amber/blue accents as the
+       hourly task cards. */
+    .drps-allday-chip {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 6px 10px 6px 12px;
+        border-radius: 10px;
+        border-left: 3px solid var(--drps-blue-500);
+        background: #EEF2FC;
+        font-size: 0.78rem;
+        color: var(--drps-navy-800);
+    }
+
+    .drps-allday-chip.priority-high {
+        border-left-color: #E0435C;
+        background: #FCEEF0;
+    }
+
+    .drps-allday-chip.priority-medium {
+        border-left-color: #D98C1F;
+        background: #FBF2E6;
+    }
+
+    .drps-allday-chip.priority-low {
+        border-left-color: var(--drps-blue-500);
+        background: #EEF2FC;
+    }
+
+    .drps-allday-chip.done {
+        opacity: 0.55;
+    }
+
+    .drps-allday-chip.done .drps-allday-title {
+        text-decoration: line-through;
+    }
+
+    /* Small category icon shown inline next to the category label on
+       both hourly task cards and all-day chips, so tasks can be
+       scanned by type at a glance. */
+    .drps-category-icon {
+        opacity: 0.7;
+    }
+
+    /* Line showing who completed a task, once attributed via the
+       completion popup. */
+    .drps-task-completed-by {
+        font-size: 0.68rem;
+        color: var(--drps-blue-500);
+        margin-top: 2px;
+        font-style: italic;
+    }
+
+    /* Completion dialog: reused by CompletedByDialog.razor (shown via
+       IDialogService/MudDialogProvider) to style the task name it
+       displays above the employee dropdown. */
+    .drps-modal-task-name {
+        font-size: 0.85rem;
+        color: var(--drps-text-muted);
+        margin-bottom: 16px;
+    }
 </style>
 
 @* =====================================================================
@@ -265,6 +411,11 @@
                     <div class="@cssClass" @onclick="() => SelectDay(day)">
                         <span class="drps-day-label">@day.ToString("ddd").ToUpper()</span>
                         <span class="drps-day-number">@day.Day</span>
+                        @* Dot only renders if this day has at least one task. *@
+                        @if (DayHasTasks(day))
+                        {
+                            <span class="drps-day-dot"></span>
+                        }
                     </div>
                 }
             </div>
@@ -279,6 +430,43 @@
         <MudText Typo="Typo.body2" Class="mb-3" Style="color:#6B7A90;">
             @(TasksForSelectedDay.Count() == 0 ? "No tasks scheduled" : $"{TasksForSelectedDay.Count(t => t.IsDone)} of {TasksForSelectedDay.Count()} completed")
         </MudText>
+
+        @* --- Legend explaining the priority accent colors --- *@
+        <div class="drps-legend">
+            <div class="drps-legend-item"><span class="drps-legend-dot" style="background:#E0435C;"></span>High</div>
+            <div class="drps-legend-item"><span class="drps-legend-dot" style="background:#D98C1F;"></span>Medium</div>
+            <div class="drps-legend-item"><span class="drps-legend-dot" style="background:#2A5CD1;"></span>Low</div>
+        </div>
+
+        @* --- All-day tasks: things not tied to a specific hour --- *@
+        @if (AllDayTasksForSelectedDay.Any())
+        {
+            <div class="drps-allday-bar">
+                <span class="drps-allday-label">All day</span>
+                @foreach (var task in AllDayTasksForSelectedDay)
+                {
+                    <div class="drps-allday-chip priority-@task.Priority.ToString().ToLower() @(task.IsDone ? "done" : "")">
+                        <MudIcon Icon="@GetCategoryIcon(task.Category)" Size="Size.Small" Class="drps-category-icon" />
+                        <div>
+                            <span class="drps-allday-title">@task.Title</span>
+                            @* Shown once attributed via the completion popup, same as
+                               hourly task cards. *@
+                            @if (task.IsDone && !string.IsNullOrEmpty(task.CompletedBy))
+                            {
+                                <div class="drps-task-completed-by">Completed by @task.CompletedBy</div>
+                            }
+                        </div>
+                        @* Same completion popup flow as the hourly cards - checking
+                           opens CompletedByDialog, unchecking clears it directly. *@
+                        <MudCheckBox T="bool"
+                                     Value="task.IsDone"
+                                     ValueChanged="@(v => OnToggleTask(task, v))"
+                                     Color="Color.Primary"
+                                     Size="Size.Small" />
+                    </div>
+                }
+            </div>
+        }
 
         @* --- Timeline: one row per hour, tasks placed in their hour --- *@
         <div class="drps-timeline">
@@ -295,7 +483,7 @@
             @foreach (var hour in DisplayHours)
             {
                 // Tasks for the selected day that start within this hour.
-                var hourTasks = TasksForSelectedDay.Where(t => t.ScheduledStart.Hour == hour).ToList();
+                var hourTasks = TimedTasksForSelectedDay.Where(t => t.ScheduledStart.Hour == hour).ToList();
                 <div class="drps-hour-row @(hourTasks.Count == 0 ? "drps-empty-row" : "")">
 
                     @* Time label for this row, e.g. "9 AM" *@
@@ -313,16 +501,27 @@
                             @* One card per task scheduled in this hour. *@
                             @foreach (var task in hourTasks)
                             {
-                                <div class="drps-task-card @(task.IsDone ? "done" : "")">
+                                <div class="drps-task-card priority-@task.Priority.ToString().ToLower() @(task.IsDone ? "done" : "")">
                                     <div>
                                         <div class="drps-task-title">@task.Title</div>
-                                        <div class="drps-task-time">@task.ScheduledStart.ToString("h:mm tt") &middot; @task.Category</div>
+                                        <div class="drps-task-time">
+                                            <MudIcon Icon="@GetCategoryIcon(task.Category)" Size="Size.Small" Class="drps-category-icon" Style="vertical-align:text-bottom;" />
+                                            @task.ScheduledStart.ToString("h:mm tt") &middot; @task.Category
+                                        </div>
+                                        @* Shown once the task has been marked complete and
+                                           attributed to an employee via the popup. *@
+                                        @if (task.IsDone && !string.IsNullOrEmpty(task.CompletedBy))
+                                        {
+                                            <div class="drps-task-completed-by">Completed by @task.CompletedBy</div>
+                                        }
                                     </div>
-                                    @* Checkbox only toggles completion - it does not
-                                       create, edit, or delete the task itself. *@
+                                    @* Checking the box does not mark the task done directly -
+                                       it opens the completion popup (OnToggleTask) so the
+                                       user can attribute who completed it. Unchecking clears
+                                       completion immediately with no prompt needed. *@
                                     <MudCheckBox T="bool"
                                                  Value="task.IsDone"
-                                                 ValueChanged="@(v => task.IsDone = v)"
+                                                 ValueChanged="@(v => OnToggleTask(task, v))"
                                                  Color="Color.Primary"
                                                  Size="Size.Small" />
                                 </div>
@@ -367,21 +566,94 @@
     // schedule view that just displays whatever has been scheduled.
     private List<TaskItem> tasks = new()
     {
-        new TaskItem { Title = "Volunteer check-in call", ScheduledStart = DateTime.Today.AddHours(8), Category = "Admin", IsDone = true },
-        new TaskItem { Title = "Prepare donor report", ScheduledStart = DateTime.Today.AddHours(9).AddMinutes(30), Category = "Admin" },
-        new TaskItem { Title = "Site visit — Alexandra shelter", ScheduledStart = DateTime.Today.AddHours(11), Category = "Fieldwork" },
-        new TaskItem { Title = "Team stand-up", ScheduledStart = DateTime.Today.AddHours(13), Category = "Meeting" },
-        new TaskItem { Title = "Grant proposal review", ScheduledStart = DateTime.Today.AddHours(15).AddMinutes(30), Category = "Admin" },
-        new TaskItem { Title = "Community workshop setup", ScheduledStart = DateTime.Today.AddDays(1).AddHours(9), Category = "Fieldwork" },
-        new TaskItem { Title = "Board meeting", ScheduledStart = DateTime.Today.AddDays(1).AddHours(14), Category = "Meeting" },
-        new TaskItem { Title = "Inventory count", ScheduledStart = DateTime.Today.AddDays(2).AddHours(10), Category = "Fieldwork" },
+        new TaskItem { Title = "Volunteer check-in call", ScheduledStart = DateTime.Today.AddHours(8), Category = "Admin", Priority = Priority.Low, IsDone = true, CompletedBy = "Naledi Dube" },
+        new TaskItem { Title = "Prepare donor report", ScheduledStart = DateTime.Today.AddHours(9).AddMinutes(30), Category = "Admin", Priority = Priority.Medium },
+        new TaskItem { Title = "Site visit — Alexandra shelter", ScheduledStart = DateTime.Today.AddHours(11), Category = "Fieldwork", Priority = Priority.High },
+        new TaskItem { Title = "Team stand-up", ScheduledStart = DateTime.Today.AddHours(13), Category = "Meeting", Priority = Priority.Low },
+        new TaskItem { Title = "Grant proposal review", ScheduledStart = DateTime.Today.AddHours(15).AddMinutes(30), Category = "Admin", Priority = Priority.High },
+        new TaskItem { Title = "Community workshop setup", ScheduledStart = DateTime.Today.AddDays(1).AddHours(9), Category = "Fieldwork", Priority = Priority.Medium },
+        new TaskItem { Title = "Board meeting", ScheduledStart = DateTime.Today.AddDays(1).AddHours(14), Category = "Meeting", Priority = Priority.High },
+        new TaskItem { Title = "Inventory count", ScheduledStart = DateTime.Today.AddDays(2).AddHours(10), Category = "Fieldwork", Priority = Priority.Low },
+        new TaskItem { Title = "Submit grant report", ScheduledStart = DateTime.Today, Category = "Admin", Priority = Priority.High, IsAllDay = true },
+        new TaskItem { Title = "Renew office lease paperwork", ScheduledStart = DateTime.Today.AddDays(1), Category = "Admin", Priority = Priority.Medium, IsAllDay = true },
     };
 
-    // Tasks belonging to the selected date only, sorted by start time.
-    // This is what the timeline markup above actually iterates over.
+    // True if the given date has at least one scheduled task - drives
+    // the small dot indicator in the day strip above.
+    private bool DayHasTasks(DateTime day) => tasks.Any(t => t.ScheduledStart.Date == day.Date);
+
+    // Placeholder employee list for the "who completed this?" dropdown.
+    // In the real app this would come from the org's staff/volunteer list.
+    private List<string> employees = new()
+    {
+        "Naledi Dube",
+        "Sipho Mokoena",
+        "Aisha Patel",
+        "Liam Fourie",
+        "Grace Adeyemi"
+    };
+
+    // --- Completion popup, via IDialogService/MudDialogProvider ---
+    // Fired by a task's checkbox. Checking a task doesn't mark it done
+    // immediately - it opens CompletedByDialog so the user can say who
+    // completed it. Unchecking clears completion right away, no dialog
+    // needed since there's nothing to attribute.
+    private async Task OnToggleTask(TaskItem task, bool isChecked)
+    {
+        if (isChecked)
+        {
+            var parameters = new DialogParameters<CompletedByDialog>
+            {
+                { x => x.TaskTitle, task.Title },
+                { x => x.Employees, employees }
+            };
+            var options = new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true };
+
+            var dialog = await DialogService.ShowAsync<CompletedByDialog>("Mark task complete", parameters, options);
+            var result = await dialog.Result;
+
+            // Only mark the task done if the user actually picked an
+            // employee and confirmed - cancelling leaves task.IsDone
+            // untouched, so the checkbox just reverts to unchecked.
+            if (result is not null && !result.Canceled && result.Data is string employee && !string.IsNullOrEmpty(employee))
+            {
+                task.IsDone = true;
+                task.CompletedBy = employee;
+            }
+        }
+        else
+        {
+            task.IsDone = false;
+            task.CompletedBy = null;
+        }
+    }
+
+    // All tasks belonging to the selected date (both all-day and
+    // timed), sorted by start time. Used for the completion summary.
     private IEnumerable<TaskItem> TasksForSelectedDay =>
         tasks.Where(t => t.ScheduledStart.Date == selectedDate.Date)
              .OrderBy(t => t.ScheduledStart);
+
+    // Selected day's tasks that aren't tied to a specific hour -
+    // rendered in the "All day" bar above the timeline.
+    private IEnumerable<TaskItem> AllDayTasksForSelectedDay =>
+        TasksForSelectedDay.Where(t => t.IsAllDay);
+
+    // Selected day's tasks that do have a specific hour - these are
+    // the ones placed into the hourly timeline rows.
+    private IEnumerable<TaskItem> TimedTasksForSelectedDay =>
+        TasksForSelectedDay.Where(t => !t.IsAllDay);
+
+    // Maps a task's category to a MudBlazor icon so it can be scanned
+    // visually. Falls back to a generic task icon for anything
+    // unrecognized.
+    private string GetCategoryIcon(string category) => category switch
+    {
+        "Meeting" => Icons.Material.Filled.Groups,
+        "Admin" => Icons.Material.Filled.Description,
+        "Fieldwork" => Icons.Material.Filled.LocationOn,
+        _ => Icons.Material.Filled.Task
+    };
 
     // Computes the inline "top" CSS position (in pixels) for the red
     // "now" line, based on the real current time and the 64px height
@@ -429,6 +701,16 @@
         weekStart = weekStart.AddDays(7);
     }
 
+    // Urgency level for a task - drives the colored accent on its card
+    // (red/amber/blue). Set on the Project/Event setup page in the real
+    // app, not editable here.
+    private enum Priority
+    {
+        Low,
+        Medium,
+        High
+    }
+
     // Simple placeholder model for a scheduled task. In the real app
     // this would come from wherever the Project/Event setup page
     // persists its data.
@@ -437,6 +719,11 @@
         public string Title { get; set; } = string.Empty;
         public DateTime ScheduledStart { get; set; }
         public string Category { get; set; } = string.Empty;
+        public Priority Priority { get; set; } = Priority.Low;
+        public bool IsAllDay { get; set; } = false;
         public bool IsDone { get; set; } = false;
+        // Employee name attributed via the completion popup - set only
+        // once IsDone is true, null/empty otherwise.
+        public string? CompletedBy { get; set; } = null;
     }
 }
