@@ -1,4 +1,5 @@
 using INSY7315_Prototype_v1._0.Components;
+using MudBlazor.Services;
 
 namespace INSY7315_Prototype_v1._0
 {
@@ -11,6 +12,8 @@ namespace INSY7315_Prototype_v1._0
             // Add services to the container.
             builder.Services.AddRazorComponents()
                 .AddInteractiveServerComponents();
+
+            builder.Services.AddMudServices();
 
             var app = builder.Build();
 
