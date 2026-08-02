@@ -1,0 +1,497 @@
+@page "/meetings"
+@rendermode InteractiveServer
+@using MudBlazor
+@implements IDisposable
+
+<PageTitle>Meeting Minutes</PageTitle>
+
+@* =====================================================================
+   STYLE BLOCK
+   Same DRPS navy/blue palette and card conventions as the Daily Tasks
+   page, redeclared locally since each page's <style> block is scoped
+   to itself.
+   ===================================================================== *@
+<style>
+    .drps-meeting {
+        --drps-navy-900: #0B1626;
+        --drps-navy-800: #14243B;
+        --drps-blue-600: #1F3F7A;
+        --drps-blue-500: #2A5CD1;
+        --drps-blue-400: #4A7FE8;
+        --drps-bg: #F4F6FA;
+        --drps-surface: #FFFFFF;
+        --drps-text-muted: #6B7A90;
+        background: var(--drps-bg);
+        min-height: 100%;
+        padding-bottom: 2rem;
+    }
+
+    /* Header card: meeting title, record control, and elapsed timer. */
+    .drps-meeting-header {
+        background: linear-gradient(135deg, var(--drps-navy-900) 0%, var(--drps-blue-600) 100%);
+        border-radius: 16px;
+        padding: 20px 24px;
+        color: white;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    /* Title input styled to sit on the dark gradient. */
+    .drps-meeting-title-field .mud-input-outlined-border {
+        border-color: rgba(255, 255, 255, 0.35) !important;
+    }
+
+    .drps-meeting-title-field .mud-input-slot,
+    .drps-meeting-title-field input {
+        color: white !important;
+    }
+
+    .drps-meeting-title-field .mud-input-label {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+
+    /* Right-hand cluster: recording status/timer + start-stop button. */
+    .drps-record-controls {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-shrink: 0;
+    }
+
+    .drps-record-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.85);
+        font-variant-numeric: tabular-nums;
+    }
+
+    /* Small red dot that pulses while actively recording. */
+    .drps-record-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #E0435C;
+    }
+
+    .drps-record-dot.live {
+        animation: drps-pulse 1.4s ease-in-out infinite;
+    }
+
+    keyframes drps-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(224, 67, 92, 0.6); }
+        70% { box-shadow: 0 0 0 8px rgba(224, 67, 92, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(224, 67, 92, 0); }
+    }
+
+    /* Shared white card used for the minutes panel, notes panel, and
+       transcript panel. */
+    .drps-card {
+        background: var(--drps-surface);
+        border-radius: 16px;
+        padding: 20px;
+        box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
+        height: 100%;
+    }
+
+    .drps-card-title {
+        font-weight: 600;
+        color: var(--drps-navy-800);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* --- Notes / action items panel --- */
+    .drps-note-add-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    /* Toggle pair for tagging the next entry as a Note or Action Item. */
+    .drps-note-type-toggle {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .drps-note-type-btn {
+        border: 1px solid #DCE2EE;
+        background: white;
+        color: var(--drps-text-muted);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 0.72rem;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .drps-note-type-btn.selected {
+        background: var(--drps-blue-500);
+        border-color: var(--drps-blue-500);
+        color: white;
+    }
+
+    .drps-note-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 420px;
+        overflow-y: auto;
+    }
+
+    .drps-note-item {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border-left: 3px solid var(--drps-blue-500);
+        background: #EEF2FC;
+    }
+
+    .drps-note-item.action {
+        border-left-color: #D98C1F;
+        background: #FBF2E6;
+    }
+
+    .drps-note-item-text {
+        font-size: 0.83rem;
+        color: var(--drps-navy-800);
+    }
+
+    .drps-note-item-meta {
+        font-size: 0.68rem;
+        color: var(--drps-text-muted);
+        margin-top: 2px;
+    }
+
+    .drps-note-empty {
+        color: #C7CEDA;
+        font-size: 0.8rem;
+        text-align: center;
+        padding: 24px 0;
+    }
+
+    /* --- Transcript panel --- */
+    .drps-transcript-card {
+        margin-top: 20px;
+    }
+
+    .drps-transcript-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+
+    .drps-transcript-hint {
+        font-size: 0.78rem;
+        color: var(--drps-text-muted);
+    }
+
+    .drps-transcript-box {
+        background: #F8F9FC;
+        border: 1px solid #ECEFF4;
+        border-radius: 10px;
+        padding: 16px;
+        font-size: 0.85rem;
+        color: var(--drps-navy-800);
+        line-height: 1.6;
+        white-space: pre-wrap;
+    }
+</style>
+
+@* =====================================================================
+   MARKUP
+   Structure: header (title + record controls), a two-column row
+   (meeting minutes on the left, live notes/action items on the
+   right), then a full-width transcript panel below. Everything here
+   is prototype visual state only - no real audio capture or speech-
+   to-text is wired up.
+   ===================================================================== *@
+<div class="drps-meeting">
+    <MudContainer MaxWidth="MaxWidth.Large" Class="pt-6">
+
+        @* --- Header: meeting title + recording controls --- *@
+        <div class="drps-meeting-header">
+            <MudTextField T="string"
+                          @bind-Value="meetingTitle"
+                          Placeholder="Untitled meeting"
+                          Variant="Variant.Outlined"
+                          Class="drps-meeting-title-field"
+                          Style="max-width:360px;"
+                          Label="Meeting title" />
+
+            <div class="drps-record-controls">
+                <div class="drps-record-status">
+                    <span class="drps-record-dot @(isRecording ? "live" : "")"></span>
+                    @(isRecording ? "Recording" : hasRecorded ? "Stopped" : "Not started") &middot; @FormattedElapsed
+                </div>
+
+                @if (!isRecording)
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.FiberManualRecord"
+                               OnClick="StartRecording">
+                        @(hasRecorded ? "Resume Recording" : "Start Recording")
+                    </MudButton>
+                }
+                else
+                {
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Error"
+                               StartIcon="@Icons.Material.Filled.Stop"
+                               OnClick="StopRecording">
+                        Stop Recording
+                    </MudButton>
+                }
+            </div>
+        </div>
+
+        @* --- Two-column row: minutes on the left, notes/action items on the right --- *@
+        <MudGrid>
+            <MudItem xs="12" md="7">
+                <div class="drps-card">
+                    <div class="drps-card-title">
+                        <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
+                        Meeting Minutes
+                    </div>
+                    <MudTextField T="string"
+                                  @bind-Value="minutesText"
+                                  Placeholder="Type meeting minutes here as the discussion happens..."
+                                  Variant="Variant.Outlined"
+                                  Lines="16"
+                                  FullWidth="true" />
+                </div>
+            </MudItem>
+
+            <MudItem xs="12" md="5">
+                <div class="drps-card">
+                    <div class="drps-card-title">
+                        <MudIcon Icon="@Icons.Material.Filled.PlaylistAddCheck" Size="Size.Small" />
+                        Notes &amp; Action Items
+                    </div>
+
+                    @* Tag the next entry as a plain note or an action item before adding it. *@
+                    <div class="drps-note-type-toggle">
+                        <span class="drps-note-type-btn @(!addingActionItem ? "selected" : "")" @onclick="() => addingActionItem = false">Note</span>
+                        <span class="drps-note-type-btn @(addingActionItem ? "selected" : "")" @onclick="() => addingActionItem = true">Action Item</span>
+                    </div>
+
+                    <div class="drps-note-add-row">
+                        <MudTextField T="string"
+                                      @bind-Value="noteInput"
+                                      Placeholder="Add a note or action item..."
+                                      Variant="Variant.Outlined"
+                                      FullWidth="true"
+                                      OnKeyUp="HandleNoteKeyUp" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                       Color="Color.Primary"
+                                       Variant="Variant.Filled"
+                                       OnClick="AddNote" />
+                    </div>
+
+                    <div class="drps-note-list">
+                        @if (!notes.Any())
+                        {
+                            <div class="drps-note-empty">Nothing captured yet</div>
+                        }
+                        else
+                        {
+                            @foreach (var note in notes)
+                            {
+                                <div class="drps-note-item @(note.IsActionItem ? "action" : "")">
+                                    <div>
+                                        <div class="drps-note-item-text">@note.Text</div>
+                                        <div class="drps-note-item-meta">@(note.IsActionItem ? "Action item" : "Note") &middot; @note.Timestamp</div>
+                                    </div>
+                                    <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                   Size="Size.Small"
+                                                   OnClick="() => notes.Remove(note)" />
+                                </div>
+                            }
+                        }
+                    </div>
+                </div>
+            </MudItem>
+        </MudGrid>
+
+        @* --- Transcript panel: generated only once a recording has happened --- *@
+        <div class="drps-card drps-transcript-card">
+            <div class="drps-card-title">
+                <MudIcon Icon="@Icons.Material.Filled.Subtitles" Size="Size.Small" />
+                Transcript
+            </div>
+
+            <div class="drps-transcript-actions">
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.AutoAwesome"
+                           Disabled="@(isRecording || !hasRecorded || isGeneratingTranscript)"
+                           OnClick="GenerateTranscript">
+                    Generate Transcript
+                </MudButton>
+
+                @if (isGeneratingTranscript)
+                {
+                    <MudProgressCircular Color="Color.Primary" Size="Size.Small" Indeterminate="true" />
+                    <span class="drps-transcript-hint">Generating...</span>
+                }
+                else if (!hasRecorded)
+                {
+                    <span class="drps-transcript-hint">Record the meeting first to enable this</span>
+                }
+                else if (isRecording)
+                {
+                    <span class="drps-transcript-hint">Stop recording to generate a transcript</span>
+                }
+            </div>
+
+            @if (transcriptReady)
+            {
+                <div class="drps-transcript-box">@transcriptText</div>
+            }
+        </div>
+
+    </MudContainer>
+</div>
+
+@* =====================================================================
+   CODE-BEHIND
+   All state here is in-memory prototype state only - nothing records
+   real audio, and "Generate Transcript" just fills in placeholder
+   text after a short simulated delay. Nothing persists past a page
+   refresh.
+   ===================================================================== *@
+@code {
+    // Editable title shown in the header.
+    private string meetingTitle = string.Empty;
+
+    // Free-form minutes typed during the meeting.
+    private string minutesText = string.Empty;
+
+    // --- Recording state ---
+    private bool isRecording = false;
+    // True once the user has started (and possibly stopped) recording
+    // at least once - gates the transcript button.
+    private bool hasRecorded = false;
+    private int elapsedSeconds = 0;
+    // Ticks elapsedSeconds up once per second while isRecording is true.
+    private System.Timers.Timer? recordingTimer;
+
+    private string FormattedElapsed => TimeSpan.FromSeconds(elapsedSeconds).ToString(@"mm\:ss");
+
+    private void StartRecording()
+    {
+        isRecording = true;
+        hasRecorded = true;
+        // Starting a fresh recording resets the transcript, since it
+        // no longer reflects the (now longer) meeting.
+        transcriptReady = false;
+
+        recordingTimer = new System.Timers.Timer(1000);
+        recordingTimer.Elapsed += (sender, args) =>
+        {
+            elapsedSeconds++;
+            // Timer callbacks run off the Blazor sync context, so the
+            // UI update has to be marshalled back via InvokeAsync.
+            InvokeAsync(StateHasChanged);
+        };
+        recordingTimer.Start();
+    }
+
+    private void StopRecording()
+    {
+        isRecording = false;
+        recordingTimer?.Stop();
+        recordingTimer?.Dispose();
+        recordingTimer = null;
+    }
+
+    // --- Notes / action items captured during the meeting ---
+    private string noteInput = string.Empty;
+    // Whether the next added entry is tagged as an action item (true)
+    // or a plain note (false) - toggled by the pill buttons above the
+    // input field.
+    private bool addingActionItem = false;
+    private List<NoteItem> notes = new();
+
+    private void AddNote()
+    {
+        if (string.IsNullOrWhiteSpace(noteInput)) return;
+
+        notes.Add(new NoteItem
+        {
+            Text = noteInput.Trim(),
+            IsActionItem = addingActionItem,
+            // Stamps the note with the recording clock if a recording
+            // is in progress, otherwise just marks it as pre/post-meeting.
+            Timestamp = isRecording ? FormattedElapsed : "Not recording"
+        });
+        noteInput = string.Empty;
+    }
+
+    private void HandleNoteKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            AddNote();
+        }
+    }
+
+    // --- Transcript generation (placeholder only) ---
+    private bool isGeneratingTranscript = false;
+    private bool transcriptReady = false;
+    private string transcriptText = string.Empty;
+
+    private async Task GenerateTranscript()
+    {
+        isGeneratingTranscript = true;
+        StateHasChanged();
+
+        // Simulated processing delay - stands in for where a real
+        // speech-to-text call would happen.
+        await Task.Delay(1400);
+
+        var title = string.IsNullOrWhiteSpace(meetingTitle) ? "Untitled meeting" : meetingTitle;
+        transcriptText =
+            $"Transcript for \"{title}\" ({FormattedElapsed} recorded)\n\n" +
+            "[Speaker 1] Placeholder line of dialogue reconstructed from the recorded audio.\n" +
+            "[Speaker 2] Placeholder response continuing the discussion.\n" +
+            "[Speaker 1] Placeholder wrap-up remark closing out this section.\n\n" +
+            "This is placeholder text standing in for real speech-to-text output, " +
+            "to be replaced once a transcription service is integrated.";
+
+        transcriptReady = true;
+        isGeneratingTranscript = false;
+    }
+
+    // Placeholder model for a single note or action item captured
+    // during the meeting.
+    private class NoteItem
+    {
+        public string Text { get; set; } = string.Empty;
+        public bool IsActionItem { get; set; } = false;
+        public string Timestamp { get; set; } = string.Empty;
+    }
+
+    // Stops the recording timer if the user navigates away mid-recording,
+    // so it doesn't keep ticking (and calling StateHasChanged) on a
+    // disposed component.
+    public void Dispose()
+    {
+        recordingTimer?.Stop();
+        recordingTimer?.Dispose();
+    }
+}
