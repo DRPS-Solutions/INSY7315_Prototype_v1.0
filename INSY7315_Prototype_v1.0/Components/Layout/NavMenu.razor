@@ -1,41 +1,46 @@
-﻿<div class="top-row ps-3 navbar navbar-dark">
-    <div class="container-fluid d-flex align-items-center">
-        <a class="navbar-brand d-flex align-items-center" href="">
-            <!-- The path is relative to the wwwroot folder -->
-            <img src="images/logos/QULOOBUL MOE'MIENEEN Logo.png" class="app-logo" alt="Company Logo" />
-            <span class="ms-2">QULOOBUL MOE'MIENEEN</span>
-        </a>
+﻿<div class="nav-container">
+    <div class="navbar navbar-dark">
+        <div class="container-fluid d-flex align-items-center">
+            <a class="navbar-brand d-flex align-items-center" href="">
+                <img src="images/logos/QULOOBUL MOE'MIENEEN Logo.png" class="app-logo" alt="Company Logo" style="height: 35px;" />
+                <span class="ms-2">QULOOBUL MOE'MIENEEN</span>
+            </a>
+
+            <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+        </div>
+    </div>
+
+    <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+        <nav class="nav drps-horizontal-nav flex-column">
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                    <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="tasks">
+                    <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Daily Tasks
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="meetings">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Meetings
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="users">
+                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> User Management
+                </NavLink>
+            </div>
+
+            <div class="nav-item px-3">
+                <NavLink class="nav-link" href="events">
+                    <span class="bi bi-calendar-event-fill-nav-menu" aria-hidden="true"></span> Event Planning
+                </NavLink>
+            </div>
+        </nav>
     </div>
 </div>
-
-
-<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
-
-<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
-    <nav class="nav flex-column">
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
-                <span class="bi bi-house-door-fill-nav-menu" aria-hidden="true"></span> Home
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="tasks">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Daily Tasks
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="meetings">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Meetings
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="users">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> User Management
-            </NavLink>
-        </div>
-    </nav>
-</div>
-
