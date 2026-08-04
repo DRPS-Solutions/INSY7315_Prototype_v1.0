@@ -1,18 +1,27 @@
 @page "/meetings"
 @rendermode InteractiveServer
 @using MudBlazor
+@implements IDisposable
 
-<PageTitle>Meetings</PageTitle>
+<PageTitle>Meeting Minutes</PageTitle>
 
 <style>
     .drps-meeting {
-        background: #F4F6FA;
-        min-height: calc(100vh - 70px);
+        --drps-navy-900: #0B1626;
+        --drps-navy-800: #14243B;
+        --drps-blue-600: #1F3F7A;
+        --drps-blue-500: #2A5CD1;
+        --drps-blue-400: #4A7FE8;
+        --drps-bg: #F4F6FA;
+        --drps-surface: #FFFFFF;
+        --drps-text-muted: #6B7A90;
+        background: var(--drps-bg);
+        min-height: 100%;
         padding-bottom: 2rem;
     }
 
-    .drps-header {
-        background: linear-gradient(135deg, #0B1626 0%, #1F3F7A 100%);
+    .drps-meeting-header {
+        background: linear-gradient(135deg, var(--drps-navy-900) 0%, var(--drps-blue-600) 100%);
         border-radius: 16px;
         padding: 20px 24px;
         color: white;
@@ -20,118 +29,490 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 16px;
+        flex-wrap: wrap;
+    }
+
+    .drps-meeting-title-field .mud-input-outlined-border {
+        border-color: rgba(255, 255, 255, 0.35) !important;
+    }
+
+    .drps-meeting-title-field .mud-input-slot,
+    .drps-meeting-title-field input {
+        color: white !important;
+    }
+
+    .drps-meeting-title-field .mud-input-label {
+        color: rgba(255, 255, 255, 0.7) !important;
+    }
+
+    .drps-record-controls {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-shrink: 0;
+    }
+
+    .drps-record-status {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.85);
+        font-variant-numeric: tabular-nums;
+    }
+
+    .drps-record-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #E0435C;
+    }
+
+    .drps-record-dot.live {
+        animation: drps-pulse 1.4s ease-in-out infinite;
+    }
+
+    @@keyframes drps-pulse {
+        0% { box-shadow: 0 0 0 0 rgba(224, 67, 92, 0.6); }
+        70% { box-shadow: 0 0 0 8px rgba(224, 67, 92, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(224, 67, 92, 0); }
     }
 
     .drps-card {
-        background: #FFFFFF;
+        background: var(--drps-surface);
         border-radius: 16px;
-        padding: 24px;
+        padding: 20px;
         box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
-        min-height: 70vh;
+        height: 100%;
+    }
+
+    .drps-card-title {
+        font-weight: 600;
+        color: var(--drps-navy-800);
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .drps-note-add-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 12px;
+    }
+
+    .drps-note-type-toggle {
+        display: flex;
+        gap: 6px;
+        margin-bottom: 10px;
+    }
+
+    .drps-note-type-btn {
+        border: 1px solid #DCE2EE;
+        background: white;
+        color: var(--drps-text-muted);
+        border-radius: 999px;
+        padding: 4px 12px;
+        font-size: 0.72rem;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    .drps-note-type-btn.selected {
+        background: var(--drps-blue-500);
+        border-color: var(--drps-blue-500);
+        color: white;
+    }
+
+    .drps-note-list {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 420px;
+        overflow-y: auto;
+    }
+
+    .drps-note-item {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        border-left: 3px solid var(--drps-blue-500);
+        background: #EEF2FC;
+    }
+
+    .drps-note-item.action {
+        border-left-color: #D98C1F;
+        background: #FBF2E6;
+    }
+
+    .drps-note-item-text {
+        font-size: 0.83rem;
+        color: var(--drps-navy-800);
+    }
+
+    .drps-note-item-meta {
+        font-size: 0.68rem;
+        color: var(--drps-text-muted);
+        margin-top: 2px;
+    }
+
+    .drps-note-empty {
+        color: #C7CEDA;
+        font-size: 0.8rem;
+        text-align: center;
+        padding: 24px 0;
+    }
+
+    .drps-transcript-card {
+        margin-top: 20px;
+    }
+
+    .drps-transcript-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
+    }
+
+    .drps-transcript-hint {
+        font-size: 0.78rem;
+        color: var(--drps-text-muted);
+    }
+
+    .drps-transcript-box {
+        background: #F8F9FC;
+        border: 1px solid #ECEFF4;
+        border-radius: 10px;
+        padding: 16px;
+        font-size: 0.85rem;
+        color: var(--drps-navy-800);
+        line-height: 1.6;
+        white-space: pre-wrap;
     }
 </style>
 
 <div class="drps-meeting">
     <MudContainer MaxWidth="MaxWidth.Large" Class="pt-6">
-        <div class="drps-header">
-            <MudText Typo="Typo.h6" Style="font-weight:600;">Meetings Management</MudText>
-            @if (!showCreateScreen)
-            {
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => showCreateScreen = true">
-                    + Create Meeting
-                </MudButton>
-            }
-            else
-            {
-                <MudButton Variant="Variant.Outlined" Color="Color.Surface" OnClick="() => showCreateScreen = false">
-                    Back to Meetings List
-                </MudButton>
-            }
-        </div>
 
-        <div class="drps-card">
-            @if (!showCreateScreen)
-            {
-                @* Table View *@
-                <MudTable Items="meetings" Hover="true" Striped="false" Elevation="0">
+        @if (!showCreateScreen)
+        {
+            @* --- MAIN MEETINGS LIST VIEW --- *@
+            <div class="drps-meeting-header">
+                <MudText Typo="Typo.h6" Style="font-weight:600;">Meeting Minutes &amp; Recordings</MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => showCreateScreen = true">
+                    New / Active Meeting
+                </MudButton>
+            </div>
+
+            <div class="drps-card">
+                <MudTable Items="scheduledMeetings" Hover="true" Striped="false" Elevation="0">
                     <HeaderContent>
                         <MudTh>Topic / Title</MudTh>
                         <MudTh>Date</MudTh>
-                        <MudTh>Time</MudTh>
-                        <MudTh>Location</MudTh>
+                        <MudTh>Duration</MudTh>
                         <MudTh>Organizer</MudTh>
+                        <MudTh>Status</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Topic"><b>@context.Title</b></MudTd>
-                        <MudTd DataLabel="Date">@(context.Date?.ToString("dd MMM yyyy"))</MudTd>
-                        <MudTd DataLabel="Time">@(context.Time?.ToString(@"hh\:mm"))</MudTd>
-                        <MudTd DataLabel="Location">@context.Location</MudTd>
+                        <MudTd DataLabel="Date">@context.Date.ToString("dd MMM yyyy")</MudTd>
+                        <MudTd DataLabel="Duration">@context.Duration</MudTd>
                         <MudTd DataLabel="Organizer">@context.Organizer</MudTd>
+                        <MudTd DataLabel="Status">
+                            <MudChip T="string" Color="@(context.IsCompleted ? Color.Success : Color.Warning)" Size="Size.Small">
+                                @(context.IsCompleted ? "Completed" : "Scheduled")
+                            </MudChip>
+                        </MudTd>
                     </RowTemplate>
                 </MudTable>
-            }
-            else
-            {
-                @* Creation Screen *@
-                <MudText Typo="Typo.h6" Class="mb-4">Schedule New Meeting</MudText>
+            </div>
+        }
+        else
+        {
+            @* --- YOUR ORIGINAL MEETING MINUTES & RECORDING SCREEN --- *@
+            <div class="drps-meeting-header">
+                <div class="d-flex align-center gap-3">
+                    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Color="Color.Surface" OnClick="BackToList" />
+                    <MudTextField T="string"
+                                  @bind-Value="meetingTitle"
+                                  Placeholder="Untitled meeting"
+                                  Variant="Variant.Outlined"
+                                  Class="drps-meeting-title-field"
+                                  Style="max-width:320px;"
+                                  Label="Meeting title" />
+                </div>
 
-                <MudGrid>
-                    <MudItem xs="12" md="6">
-                        <MudTextField T="string" @bind-Value="newMeeting.Title" Label="Meeting Topic" Variant="Variant.Outlined" Class="mb-3" />
-                        <MudTextField T="string" @bind-Value="newMeeting.Location" Label="Location / Link" Variant="Variant.Outlined" Class="mb-3" />
+                <div class="drps-record-controls">
+                    <div class="drps-record-status">
+                        <span class="drps-record-dot @(isRecording ? "live" : "")"></span>
+                        @(isRecording ? "Recording" : hasRecorded ? "Stopped" : "Not started") &middot; @FormattedElapsed
+                    </div>
 
-                        <div class="d-flex gap-3 mb-3">
-                            <MudDatePicker @bind-Date="newMeeting.Date" Label="Date" Variant="Variant.Outlined" />
-                            <MudTimePicker @bind-Time="newMeeting.Time" Label="Time" Variant="Variant.Outlined" />
+                    @if (!isRecording)
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   StartIcon="@Icons.Material.Filled.FiberManualRecord"
+                                   OnClick="StartRecording">
+                            @(hasRecorded ? "Resume Recording" : "Start Recording")
+                        </MudButton>
+                    }
+                    else
+                    {
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Error"
+                                   StartIcon="@Icons.Material.Filled.Stop"
+                                   OnClick="StopRecording">
+                            Stop Recording
+                        </MudButton>
+                    }
+                </div>
+            </div>
+
+            <MudGrid>
+                <MudItem xs="12" md="7">
+                    <div class="drps-card">
+                        <div class="drps-card-title">
+                            <MudIcon Icon="@Icons.Material.Filled.Description" Size="Size.Small" />
+                            Meeting Minutes
+                        </div>
+                        <MudTextField T="string"
+                                      @bind-Value="minutesText"
+                                      Placeholder="Type meeting minutes here as the discussion happens..."
+                                      Variant="Variant.Outlined"
+                                      Lines="16"
+                                      FullWidth="true" />
+                    </div>
+                </MudItem>
+
+                <MudItem xs="12" md="5">
+                    <div class="drps-card">
+                        <div class="drps-card-title">
+                            <MudIcon Icon="@Icons.Material.Filled.PlaylistAddCheck" Size="Size.Small" />
+                            Notes &amp; Action Items
                         </div>
 
-                        <MudSelect T="string" Label="Organizer" Variant="Variant.Outlined" @bind-Value="newMeeting.Organizer" Class="mb-4">
-                            @foreach (var staff in staffList)
+                        <div class="drps-note-type-toggle">
+                            <span class="drps-note-type-btn @(!addingActionItem ? "selected" : "")" @onclick="() => addingActionItem = false">Note</span>
+                            <span class="drps-note-type-btn @(addingActionItem ? "selected" : "")" @onclick="() => addingActionItem = true">Action Item</span>
+                        </div>
+
+                        <div class="drps-note-add-row">
+                            <MudTextField T="string"
+                                          @bind-Value="noteInput"
+                                          Placeholder="Add a note or action item..."
+                                          Variant="Variant.Outlined"
+                                          FullWidth="true"
+                                          OnKeyUp="HandleNoteKeyUp" />
+                            <MudIconButton Icon="@Icons.Material.Filled.Add"
+                                           Color="Color.Primary"
+                                           Variant="Variant.Filled"
+                                           OnClick="AddNote" />
+                        </div>
+
+                        <div class="drps-note-list">
+                            @if (!notes.Any())
                             {
-                                <MudSelectItem Value="@staff">@staff</MudSelectItem>
+                                <div class="drps-note-empty">Nothing captured yet</div>
                             }
-                        </MudSelect>
-
-                        <div class="d-flex gap-2">
-                            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="SaveMeeting">Save Meeting</MudButton>
-                            <MudButton Variant="Variant.Text" OnClick="() => showCreateScreen = false">Cancel</MudButton>
+                            else
+                            {
+                                @foreach (var note in notes)
+                                {
+                                    <div class="drps-note-item @(note.IsActionItem ? "action" : "")">
+                                        <div>
+                                            <div class="drps-note-item-text">@note.Text</div>
+                                            <div class="drps-note-item-meta">@(note.IsActionItem ? "Action item" : "Note") &middot; @note.Timestamp</div>
+                                        </div>
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close"
+                                                       Size="Size.Small"
+                                                       OnClick="() => notes.Remove(note)" />
+                                    </div>
+                                }
+                            }
                         </div>
-                    </MudItem>
-                </MudGrid>
-            }
-        </div>
+                    </div>
+                </MudItem>
+            </MudGrid>
+
+            <div class="drps-card drps-transcript-card">
+                <div class="drps-card-title">
+                    <MudIcon Icon="@Icons.Material.Filled.Subtitles" Size="Size.Small" />
+                    Transcript
+                </div>
+
+                <div class="drps-transcript-actions">
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.AutoAwesome"
+                               Disabled="@(isRecording || !hasRecorded || isGeneratingTranscript)"
+                               OnClick="GenerateTranscript">
+                        Generate Transcript
+                    </MudButton>
+
+                    @if (isGeneratingTranscript)
+                    {
+                        <MudProgressCircular Color="Color.Primary" Size="Size.Small" Indeterminate="true" />
+                        <span class="drps-transcript-hint">Generating...</span>
+                    }
+                    else if (!hasRecorded)
+                    {
+                        <span class="drps-transcript-hint">Record the meeting first to enable this</span>
+                    }
+                    else if (isRecording)
+                    {
+                        <span class="drps-transcript-hint">Stop recording to generate a transcript</span>
+                    }
+                </div>
+
+                @if (transcriptReady)
+                {
+                    <div class="drps-transcript-box">@transcriptText</div>
+                }
+            </div>
+        }
+
     </MudContainer>
 </div>
 
 @code {
     private bool showCreateScreen = false;
 
-    private List<string> staffList = new() { "Naledi Dube", "Sipho Mokoena", "Aisha Patel" };
-
-    private MeetingModel newMeeting = new MeetingModel();
-
-    private List<MeetingModel> meetings = new()
+    private List<MeetingSummary> scheduledMeetings = new()
     {
-        new MeetingModel { Title = "Q3 Logistics Strategy", Date = DateTime.Today.AddDays(1), Time = new TimeSpan(10, 0, 0), Location = "Boardroom A", Organizer = "Naledi Dube" },
-        new MeetingModel { Title = "System Integration Review", Date = DateTime.Today.AddDays(3), Time = new TimeSpan(14, 30, 0), Location = "Teams Meeting", Organizer = "Sipho Mokoena" }
+        new MeetingSummary { Title = "Donor Operations Review", Date = DateTime.Today.AddDays(-1), Duration = "45 mins", Organizer = "Aisha Patel", IsCompleted = true },
+        new MeetingSummary { Title = "Fieldwork Logistics & Planning", Date = DateTime.Today, Duration = "30 mins", Organizer = "Sipho Mokoena", IsCompleted = false },
+        new MeetingSummary { Title = "Q3 Board Strategy Session", Date = DateTime.Today.AddDays(2), Duration = "60 mins", Organizer = "Naledi Dube", IsCompleted = false }
     };
 
-    private void SaveMeeting()
+    private string meetingTitle = string.Empty;
+    private string minutesText = string.Empty;
+
+    private bool isRecording = false;
+    private bool hasRecorded = false;
+    private int elapsedSeconds = 0;
+    private System.Timers.Timer? recordingTimer;
+
+    private string FormattedElapsed => TimeSpan.FromSeconds(elapsedSeconds).ToString(@"mm\:ss");
+
+    private void StartRecording()
     {
-        if (!string.IsNullOrWhiteSpace(newMeeting.Title) && newMeeting.Date.HasValue)
+        isRecording = true;
+        hasRecorded = true;
+        transcriptReady = false;
+
+        recordingTimer = new System.Timers.Timer(1000);
+        recordingTimer.Elapsed += (sender, args) =>
         {
-            meetings.Add(newMeeting);
-            newMeeting = new MeetingModel();
-            showCreateScreen = false;
+            elapsedSeconds++;
+            InvokeAsync(StateHasChanged);
+        };
+        recordingTimer.Start();
+    }
+
+    private void StopRecording()
+    {
+        isRecording = false;
+        recordingTimer?.Stop();
+        recordingTimer?.Dispose();
+        recordingTimer = null;
+    }
+
+    private string noteInput = string.Empty;
+    private bool addingActionItem = false;
+    private List<NoteItem> notes = new();
+
+    private void AddNote()
+    {
+        if (string.IsNullOrWhiteSpace(noteInput)) return;
+
+        notes.Add(new NoteItem
+        {
+            Text = noteInput.Trim(),
+            IsActionItem = addingActionItem,
+            Timestamp = isRecording ? FormattedElapsed : "Not recording"
+        });
+        noteInput = string.Empty;
+    }
+
+    private void HandleNoteKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            AddNote();
         }
     }
 
-    private class MeetingModel
+    private bool isGeneratingTranscript = false;
+    private bool transcriptReady = false;
+    private string transcriptText = string.Empty;
+
+    private async Task GenerateTranscript()
+    {
+        isGeneratingTranscript = true;
+        StateHasChanged();
+
+        await Task.Delay(1400);
+
+        var title = string.IsNullOrWhiteSpace(meetingTitle) ? "Untitled meeting" : meetingTitle;
+        transcriptText =
+            $"Transcript for \"{title}\" ({FormattedElapsed} recorded)\n\n" +
+            "[Speaker 1] Placeholder line of dialogue reconstructed from the recorded audio.\n" +
+            "[Speaker 2] Placeholder response continuing the discussion.\n" +
+            "[Speaker 1] Placeholder wrap-up remark closing out this section.\n\n" +
+            "This is placeholder text standing in for real speech-to-text output, " +
+            "to be replaced once a transcription service is integrated.";
+
+        transcriptReady = true;
+        isGeneratingTranscript = false;
+    }
+
+    private void BackToList()
+    {
+        if (isRecording)
+        {
+            StopRecording();
+        }
+
+        if (!string.IsNullOrWhiteSpace(meetingTitle))
+        {
+            scheduledMeetings.Insert(0, new MeetingSummary
+            {
+                Title = meetingTitle,
+                Date = DateTime.Today,
+                Duration = FormattedElapsed,
+                Organizer = "Naledi Dube",
+                IsCompleted = true
+            });
+        }
+
+        showCreateScreen = false;
+    }
+
+    private class MeetingSummary
     {
         public string Title { get; set; } = string.Empty;
-        public DateTime? Date { get; set; } = DateTime.Today;
-        public TimeSpan? Time { get; set; } = new TimeSpan(9, 0, 0);
-        public string Location { get; set; } = string.Empty;
+        public DateTime Date { get; set; }
+        public string Duration { get; set; } = string.Empty;
         public string Organizer { get; set; } = string.Empty;
+        public bool IsCompleted { get; set; }
+    }
+
+    private class NoteItem
+    {
+        public string Text { get; set; } = string.Empty;
+        public bool IsActionItem { get; set; } = false;
+        public string Timestamp { get; set; } = string.Empty;
+    }
+
+    public void Dispose()
+    {
+        recordingTimer?.Stop();
+        recordingTimer?.Dispose();
     }
 }
