@@ -418,9 +418,9 @@
         {
             @* --- NEW CREATE USER FORM --- *@
             <div class="drps-create-card">
-                <MudText Typo="Typo.h6" Style="font-weight:600; color:var(--drps-navy-800);" Class="mb-4">Create New Account</MudText>
+                <MudText Typo="Typo.h6" Style="font-weight:600; color:var(--drps-navy-800);" Class="mb-4">Create New User</MudText>
                 
-                <MudGrid>
+                <MudGrid Justify="Justify.Center">
                     <MudItem xs="12" md="6">
                         <MudTextField T="string" @bind-Value="newUserName" Label="Full Name" Variant="Variant.Outlined" Class="mb-3" />
                         <MudTextField T="string" @bind-Value="newUserEmail" Label="Email Address" Variant="Variant.Outlined" Class="mb-3" />

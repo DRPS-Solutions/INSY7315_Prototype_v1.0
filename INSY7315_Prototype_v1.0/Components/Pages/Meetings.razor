@@ -216,18 +216,12 @@
                         <MudTh>Date</MudTh>
                         <MudTh>Duration</MudTh>
                         <MudTh>Organizer</MudTh>
-                        <MudTh>Status</MudTh>
                     </HeaderContent>
                     <RowTemplate>
                         <MudTd DataLabel="Topic"><b>@context.Title</b></MudTd>
                         <MudTd DataLabel="Date">@context.Date.ToString("dd MMM yyyy")</MudTd>
                         <MudTd DataLabel="Duration">@context.Duration</MudTd>
                         <MudTd DataLabel="Organizer">@context.Organizer</MudTd>
-                        <MudTd DataLabel="Status">
-                            <MudChip T="string" Color="@(context.IsCompleted ? Color.Success : Color.Warning)" Size="Size.Small">
-                                @(context.IsCompleted ? "Completed" : "Scheduled")
-                            </MudChip>
-                        </MudTd>
                     </RowTemplate>
                 </MudTable>
             </div>
@@ -271,6 +265,14 @@
                             Stop Recording
                         </MudButton>
                     }
+
+                    <MudButton Variant="Variant.Filled"
+                               Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.Check"
+                               Disabled="@isRecording"
+                               OnClick="CreateMeeting">
+                        Finish Meeting
+                    </MudButton>
                 </div>
             </div>
 
@@ -385,9 +387,9 @@
 
     private List<MeetingSummary> scheduledMeetings = new()
     {
-        new MeetingSummary { Title = "Donor Operations Review", Date = DateTime.Today.AddDays(-1), Duration = "45 mins", Organizer = "Aisha Patel", IsCompleted = true },
-        new MeetingSummary { Title = "Fieldwork Logistics & Planning", Date = DateTime.Today, Duration = "30 mins", Organizer = "Sipho Mokoena", IsCompleted = false },
-        new MeetingSummary { Title = "Q3 Board Strategy Session", Date = DateTime.Today.AddDays(2), Duration = "60 mins", Organizer = "Naledi Dube", IsCompleted = false }
+        new MeetingSummary { Title = "Donor Operations Review", Date = DateTime.Today.AddDays(-1), Duration = "45 mins", Organizer = "Aisha Patel" },
+        new MeetingSummary { Title = "Fieldwork Logistics & Planning", Date = DateTime.Today, Duration = "30 mins", Organizer = "Sipho Mokoena" },
+        new MeetingSummary { Title = "Q3 Board Strategy Session", Date = DateTime.Today.AddDays(2), Duration = "60 mins", Organizer = "Naledi Dube" }
     };
 
     private string meetingTitle = string.Empty;
@@ -472,26 +474,51 @@
         isGeneratingTranscript = false;
     }
 
-    private void BackToList()
+    private void CreateMeeting()
     {
         if (isRecording)
         {
             StopRecording();
         }
 
-        if (!string.IsNullOrWhiteSpace(meetingTitle))
+        scheduledMeetings.Insert(0, new MeetingSummary
         {
-            scheduledMeetings.Insert(0, new MeetingSummary
-            {
-                Title = meetingTitle,
-                Date = DateTime.Today,
-                Duration = FormattedElapsed,
-                Organizer = "Naledi Dube",
-                IsCompleted = true
-            });
+            Title = string.IsNullOrWhiteSpace(meetingTitle) ? "Untitled meeting" : meetingTitle,
+            Date = DateTime.Today,
+            Duration = FormattedElapsed,
+            Organizer = "Naledi Dube"
+        });
+
+        ResetMeetingState();
+        showCreateScreen = false;
+    }
+
+    private void BackToList()
+    {
+        // Cancels the in-progress meeting without saving it to the list.
+        if (isRecording)
+        {
+            StopRecording();
         }
 
+        ResetMeetingState();
         showCreateScreen = false;
+    }
+
+    private void ResetMeetingState()
+    {
+        meetingTitle = string.Empty;
+        minutesText = string.Empty;
+        noteInput = string.Empty;
+        addingActionItem = false;
+        notes.Clear();
+
+        hasRecorded = false;
+        elapsedSeconds = 0;
+
+        transcriptReady = false;
+        transcriptText = string.Empty;
+        isGeneratingTranscript = false;
     }
 
     private class MeetingSummary
@@ -500,7 +527,6 @@
         public DateTime Date { get; set; }
         public string Duration { get; set; } = string.Empty;
         public string Organizer { get; set; } = string.Empty;
-        public bool IsCompleted { get; set; }
     }
 
     private class NoteItem
