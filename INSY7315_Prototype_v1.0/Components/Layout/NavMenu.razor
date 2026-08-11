@@ -5,22 +5,8 @@
         <div class="container-fluid d-flex align-items-center">
             <a class="navbar-brand d-flex align-items-center" href="">
                 <img src="images/logos/QULOOBUL MOE'MIENEEN Logo.png" class="app-logo" alt="Company Logo" style="height: 35px;" />
-                <span class="ms-2">QULOOBUL MOE'MIENEEN</span>
+                <span class="ms-2 brand-text">QULOOBUL MOE'MIENEEN</span>
             </a>
-
-            <div class="nav-controls">
-                <MudIconButton Icon="@(IsVerticalNav ? Icons.Material.Filled.ViewAgenda : Icons.Material.Filled.ViewSidebar)"
-                               Color="Color.Inherit"
-                               Size="Size.Small"
-                               Title="@(IsVerticalNav ? "Switch to horizontal navigation" : "Switch to vertical navigation")"
-                               OnClick="@(() => OnToggleNavOrientation.InvokeAsync())" />
-
-                <MudIconButton Icon="@(IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                               Color="Color.Inherit"
-                               Size="Size.Small"
-                               Title="@(IsDarkMode ? "Switch to light mode" : "Switch to dark mode")"
-                               OnClick="@(() => OnToggleDarkMode.InvokeAsync())" />
-            </div>
 
             <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
         </div>
@@ -59,6 +45,59 @@
             </div>
         </nav>
     </div>
+
+    <!--
+        Grouped end-of-navbar controls. Kept out of the brand row on
+        purpose so the logo/name never has to compete with them for
+        space in the narrow 260px vertical sidebar. CSS repositions
+        this block per layout: overlaid near the hamburger on mobile,
+        flush right on the desktop horizontal bar, and pinned to the
+        bottom of the sidebar in vertical mode.
+    -->
+    <div class="nav-end">
+        <MudMenu Icon="@Icons.Material.Filled.Settings"
+                  Color="Color.Inherit"
+                  Size="Size.Small"
+                  Title="Settings"
+                  AnchorOrigin="Origin.BottomRight"
+                  TransformOrigin="Origin.TopRight">
+            <MudMenuItem OnClick="@(() => OnToggleDarkMode.InvokeAsync())">
+                <div class="d-flex align-items-center">
+                    <MudIcon Icon="@(IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" Class="me-2" Size="Size.Small" />
+                    <span>@(IsDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode")</span>
+                </div>
+            </MudMenuItem>
+            <MudMenuItem OnClick="@(() => OnToggleNavOrientation.InvokeAsync())">
+                <div class="d-flex align-items-center">
+                    <MudIcon Icon="@(IsVerticalNav ? Icons.Material.Filled.ViewAgenda : Icons.Material.Filled.ViewSidebar)" Class="me-2" Size="Size.Small" />
+                    <span>@(IsVerticalNav ? "Switch to Horizontal Nav" : "Switch to Vertical Nav")</span>
+                </div>
+            </MudMenuItem>
+        </MudMenu>
+
+        <!--
+            Profile control - visual only for now, no auth wired up.
+            Toggling isLoggedIn just flips the label/icon so the
+            prototype reads as a near-final view of the navbar.
+        -->
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
+                  Color="Color.Inherit"
+                  Size="Size.Small"
+                  Title="Account"
+                  AnchorOrigin="Origin.BottomRight"
+                  TransformOrigin="Origin.TopRight">
+            <MudText Typo="Typo.subtitle2" Class="px-4 pt-1 pb-2">
+                @(isLoggedIn ? "Signed in as Admin" : "Not signed in")
+            </MudText>
+            <MudDivider Class="my-1" />
+            <MudMenuItem OnClick="@ToggleLogin">
+                <div class="d-flex align-items-center">
+                    <MudIcon Icon="@(isLoggedIn ? Icons.Material.Filled.Logout : Icons.Material.Filled.Login)" Class="me-2" Size="Size.Small" />
+                    <span>@(isLoggedIn ? "Logout" : "Login")</span>
+                </div>
+            </MudMenuItem>
+        </MudMenu>
+    </div>
 </div>
 
 @code {
@@ -69,4 +108,10 @@
     [Parameter] public bool IsVerticalNav { get; set; }
     [Parameter] public EventCallback OnToggleDarkMode { get; set; }
     [Parameter] public EventCallback OnToggleNavOrientation { get; set; }
+
+    // Visual-only stand-in for real auth - just flips the menu's label
+    // and icon so the navbar reads as a near-final prototype view.
+    private bool isLoggedIn = true;
+
+    private void ToggleLogin() => isLoggedIn = !isLoggedIn;
 }

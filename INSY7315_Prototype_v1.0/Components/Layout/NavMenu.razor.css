@@ -18,21 +18,28 @@
 .navbar-brand {
     font-size: 1.1rem;
     color: white;
+    min-width: 0; /* allow the flex item to shrink below its content width */
 }
 
-.nav-controls {
+    .navbar-brand .brand-text {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+/*
+   Grouped end-of-navbar controls (settings menu + profile menu).
+   Default (mobile, collapsed-hamburger) placement: overlaid near the
+   top of the navbar, just left of the hamburger toggler.
+*/
+.nav-end {
+    position: absolute;
+    top: 0.375rem;
+    right: 4.5rem;
     display: flex;
     align-items: center;
     gap: 2px;
     color: white;
-    margin-left: auto;
-    margin-right: 4.5rem; /* clears the absolutely-positioned mobile hamburger */
-}
-
-@media (min-width: 900px) {
-    .nav-controls {
-        margin-right: 0.5rem;
-    }
 }
 
 .bi {
@@ -113,9 +120,25 @@
         display: none;
     }
 
-    .nav-container.nav-vertical .nav-controls {
-        margin-right: 0.5rem;
+    .nav-container.nav-vertical .navbar .container-fluid {
+        padding: 0.75rem 1rem;
     }
+
+    /* Logo + company name: stack and wrap instead of squeezing onto
+       one line, since the sidebar is a fixed, fairly narrow 260px. */
+    .nav-container.nav-vertical .navbar-brand {
+        flex-wrap: wrap;
+        row-gap: 0.35rem;
+        font-size: 0.85rem;
+        line-height: 1.2;
+    }
+
+        .nav-container.nav-vertical .navbar-brand .brand-text {
+            white-space: normal;
+            overflow: visible;
+            text-overflow: unset;
+            overflow-wrap: anywhere;
+        }
 
     .nav-container.nav-vertical .nav-scrollable {
         display: block !important;
@@ -144,11 +167,23 @@
             border-radius: 8px;
         }
 
-/* 
-   Transforms the layout into a horizontal bar on desktop views 
+    /* Settings + profile group pinned to the bottom of the sidebar. */
+    .nav-container.nav-vertical .nav-end {
+        position: static;
+        flex-shrink: 0;
+        justify-content: flex-start;
+        gap: 8px;
+        padding: 0.75rem 1rem;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+/*
+   Transforms the layout into a horizontal bar on desktop views.
+   Explicitly excludes nav-vertical so this padding/centering never
+   leaks into the sidebar layout above.
 */
 @media (min-width: 900px) {
-    .nav-container {
+    .nav-container:not(.nav-vertical) {
         display: flex;
         align-items: center;
         padding: 0 2rem;
@@ -156,7 +191,7 @@
     }
 
     .navbar-brand {
-        margin-right: auto; /* Automatically pushes all navigation items to the far right */
+        margin-right: 2rem;
     }
 
     .navbar-toggler {
@@ -188,4 +223,12 @@
             border-radius: 8px;
             transition: background-color 0.2s ease;
         }
+
+    /* Settings + profile group flush against the right end of the
+       horizontal bar. */
+    .nav-container:not(.nav-vertical) .nav-end {
+        position: static;
+        margin-left: auto;
+        padding: 0 0.5rem;
+    }
 }
