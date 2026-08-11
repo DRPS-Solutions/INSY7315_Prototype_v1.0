@@ -14,6 +14,14 @@
         --drps-bg: #F4F6FA;
         --drps-surface: #FFFFFF;
         --drps-text-muted: #6B7A90;
+        --drps-tint-blue: #EEF2FC;
+        --drps-tint-amber: #FBF2E6;
+        --drps-tint-red: #FCEEF0;
+        --drps-border-soft: #F0F2F7;
+        --drps-track: #ECEFF4;
+        --drps-hover: #F7F9FC;
+        --drps-empty: #C7CEDA;
+        --drps-shadow: rgba(11, 22, 38, 0.06);
         background: var(--drps-bg);
         min-height: 100%;
         padding-bottom: 2rem;
@@ -50,7 +58,7 @@
     .drps-roster {
         background: var(--drps-surface);
         border-radius: 16px;
-        box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
+        box-shadow: 0 2px 10px var(--drps-shadow);
         overflow: hidden;
     }
 
@@ -61,7 +69,7 @@
         padding: 12px 16px;
         cursor: pointer;
         border-left: 3px solid transparent;
-        border-bottom: 1px solid #F0F2F7;
+        border-bottom: 1px solid var(--drps-border-soft);
         transition: background 0.15s ease;
     }
 
@@ -70,11 +78,11 @@
     }
 
     .drps-roster-item:hover {
-        background: #F7F9FC;
+        background: var(--drps-hover);
     }
 
     .drps-roster-item.selected {
-        background: #EEF2FC;
+        background: var(--drps-tint-blue);
         border-left-color: var(--drps-blue-500);
     }
 
@@ -113,7 +121,7 @@
         margin-top: 4px;
         height: 4px;
         border-radius: 2px;
-        background: #ECEFF4;
+        background: var(--drps-track);
         overflow: hidden;
     }
 
@@ -128,7 +136,7 @@
         background: var(--drps-surface);
         border-radius: 16px;
         padding: 20px 24px;
-        box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
+        box-shadow: 0 2px 10px var(--drps-shadow);
         display: flex;
         align-items: center;
         gap: 16px;
@@ -177,7 +185,7 @@
         background: var(--drps-surface);
         border-radius: 14px;
         padding: 14px 18px;
-        box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
+        box-shadow: 0 2px 10px var(--drps-shadow);
         border-left: 4px solid var(--drps-blue-500);
     }
 
@@ -213,7 +221,7 @@
         background: var(--drps-surface);
         border-radius: 16px;
         padding: 18px;
-        box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
+        box-shadow: 0 2px 10px var(--drps-shadow);
     }
 
     .drps-task-col-title {
@@ -229,14 +237,14 @@
     .drps-user-task {
         border-radius: 8px;
         padding: 8px 12px;
-        background: #EEF2FC;
+        background: var(--drps-tint-blue);
         border-left: 4px solid var(--drps-blue-500);
         margin-bottom: 8px;
     }
 
-    .drps-user-task.priority-high { border-left-color: #E0435C; background: #FCEEF0; }
-    .drps-user-task.priority-medium { border-left-color: #D98C1F; background: #FBF2E6; }
-    .drps-user-task.priority-low { border-left-color: var(--drps-blue-500); background: #EEF2FC; }
+    .drps-user-task.priority-high { border-left-color: #E0435C; background: var(--drps-tint-red); }
+    .drps-user-task.priority-medium { border-left-color: #D98C1F; background: var(--drps-tint-amber); }
+    .drps-user-task.priority-low { border-left-color: var(--drps-blue-500); background: var(--drps-tint-blue); }
 
     .drps-user-task.done {
         opacity: 0.6;
@@ -259,7 +267,7 @@
     }
 
     .drps-task-col-empty {
-        color: #C7CEDA;
+        color: var(--drps-empty);
         font-size: 0.8rem;
         text-align: center;
         padding: 20px 0;
@@ -270,8 +278,24 @@
         background: var(--drps-surface);
         border-radius: 16px;
         padding: 24px;
-        box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
+        box-shadow: 0 2px 10px var(--drps-shadow);
         min-height: 60vh;
+    }
+
+    /* --- Dark mode overrides --- */
+    .page.dark-mode .drps-users {
+        --drps-bg: #0F1B2E;
+        --drps-surface: #16233A;
+        --drps-text-muted: #8CA0BF;
+        --drps-navy-800: #E8ECF5;
+        --drps-tint-blue: rgba(74, 127, 232, 0.16);
+        --drps-tint-amber: rgba(217, 140, 31, 0.18);
+        --drps-tint-red: rgba(224, 67, 92, 0.16);
+        --drps-border-soft: #22314C;
+        --drps-track: #22314C;
+        --drps-hover: #1B2A44;
+        --drps-empty: #4C5C79;
+        --drps-shadow: rgba(0, 0, 0, 0.35);
     }
 </style>
 
@@ -418,7 +442,7 @@
         {
             @* --- NEW CREATE USER FORM --- *@
             <div class="drps-create-card">
-                <MudText Typo="Typo.h6" Style="font-weight:600; color:var(--drps-navy-800);" Class="mb-4">Create New User</MudText>
+                <MudText Typo="Typo.h6" Style="font-weight:600; color:var(--drps-navy-800);" Class="mb-4">Create New Account</MudText>
                 
                 <MudGrid Justify="Justify.Center">
                     <MudItem xs="12" md="6">

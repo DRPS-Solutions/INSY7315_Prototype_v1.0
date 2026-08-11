@@ -24,6 +24,12 @@
         --drps-bg: #F4F6FA;         /* overall page background */
         --drps-surface: #FFFFFF;    /* card/panel background */
         --drps-text-muted: #6B7A90; /* secondary/muted text color */
+        --drps-tint-blue: #EEF2FC;  /* low-priority task card/chip tint */
+        --drps-tint-amber: #FBF2E6; /* medium-priority task card/chip tint */
+        --drps-tint-red: #FCEEF0;   /* high-priority task card/chip tint */
+        --drps-border-soft: #ECEFF4; /* hour-row and card hairlines */
+        --drps-empty: #C7CEDA;      /* empty-state / placeholder text */
+        --drps-shadow: rgba(11, 22, 38, 0.06); /* card drop shadow */
         background: var(--drps-bg);
         min-height: 100%;
         padding-bottom: 2rem;
@@ -131,7 +137,7 @@
     .drps-timeline {
         background: var(--drps-surface);
         border-radius: 16px;
-        box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
+        box-shadow: 0 2px 10px var(--drps-shadow);
         position: relative; /* anchors the absolutely-positioned "now" line */
         overflow: hidden;
     }
@@ -140,7 +146,7 @@
     .drps-hour-row {
         display: flex;
         min-height: 64px;
-        border-top: 1px solid #ECEFF4;
+        border-top: 1px solid var(--drps-border-soft);
     }
 
     /* No top border on the very first hour row (avoids a double line
@@ -164,7 +170,7 @@
        by side instead of stretching full width. */
     .drps-hour-body {
         flex: 1;
-        border-left: 1px solid #ECEFF4;
+        border-left: 1px solid var(--drps-border-soft);
         padding: 6px 12px;
         display: flex;
         flex-direction: row;
@@ -179,7 +185,7 @@
     .drps-task-card {
         border-radius: 8px;
         padding: 8px 14px;
-        background: #EEF2FC;
+        background: var(--drps-tint-blue);
         border-left: 4px solid var(--drps-blue-500);
         display: flex;
         align-items: center;
@@ -194,17 +200,17 @@
        glance without needing to read the text. */
     .drps-task-card.priority-high {
         border-left-color: #E0435C;
-        background: #FCEEF0;
+        background: var(--drps-tint-red);
     }
 
     .drps-task-card.priority-medium {
         border-left-color: #D98C1F;
-        background: #FBF2E6;
+        background: var(--drps-tint-amber);
     }
 
     .drps-task-card.priority-low {
         border-left-color: var(--drps-blue-500);
-        background: #EEF2FC;
+        background: var(--drps-tint-blue);
     }
 
     /* Faded look once a task is marked complete. */
@@ -258,7 +264,7 @@
     /* Hour rows with no tasks: dim placeholder styling so the eye
        skips past empty hours quickly. */
     .drps-empty-row .drps-hour-body {
-        color: #C7CEDA;
+        color: var(--drps-empty);
         font-size: 0.75rem;
         justify-content: center;
     }
@@ -293,7 +299,7 @@
         border-radius: 12px;
         padding: 12px 16px;
         margin-bottom: 12px;
-        box-shadow: 0 2px 10px rgba(11, 22, 38, 0.06);
+        box-shadow: 0 2px 10px var(--drps-shadow);
         display: flex;
         align-items: center;
         gap: 10px;
@@ -320,24 +326,24 @@
         padding: 6px 10px 6px 12px;
         border-radius: 10px;
         border-left: 3px solid var(--drps-blue-500);
-        background: #EEF2FC;
+        background: var(--drps-tint-blue);
         font-size: 0.78rem;
         color: var(--drps-navy-800);
     }
 
     .drps-allday-chip.priority-high {
         border-left-color: #E0435C;
-        background: #FCEEF0;
+        background: var(--drps-tint-red);
     }
 
     .drps-allday-chip.priority-medium {
         border-left-color: #D98C1F;
-        background: #FBF2E6;
+        background: var(--drps-tint-amber);
     }
 
     .drps-allday-chip.priority-low {
         border-left-color: var(--drps-blue-500);
-        background: #EEF2FC;
+        background: var(--drps-tint-blue);
     }
 
     .drps-allday-chip.done {
@@ -371,6 +377,20 @@
         font-size: 0.85rem;
         color: var(--drps-text-muted);
         margin-bottom: 16px;
+    }
+
+    /* --- Dark mode overrides --- */
+    .page.dark-mode .drps-schedule {
+        --drps-bg: #0F1B2E;
+        --drps-surface: #16233A;
+        --drps-text-muted: #8CA0BF;
+        --drps-navy-800: #E8ECF5;
+        --drps-tint-blue: rgba(74, 127, 232, 0.16);
+        --drps-tint-amber: rgba(217, 140, 31, 0.18);
+        --drps-tint-red: rgba(224, 67, 92, 0.16);
+        --drps-border-soft: #22314C;
+        --drps-empty: #4C5C79;
+        --drps-shadow: rgba(0, 0, 0, 0.35);
     }
 </style>
 

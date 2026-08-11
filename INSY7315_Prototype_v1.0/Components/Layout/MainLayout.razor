@@ -1,13 +1,17 @@
 ﻿@inherits LayoutComponentBase
+@using MudBlazor
 
-<MudThemeProvider />
+<MudThemeProvider IsDarkMode="isDarkMode" Theme="_theme" />
 <MudPopoverProvider />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<div class="page">
+<div class="page @(isDarkMode ? "dark-mode" : "") @(isVerticalNav ? "nav-vertical" : "")">
     <header class="top-navbar">
-        <NavMenu />
+        <NavMenu IsDarkMode="isDarkMode"
+                 IsVerticalNav="isVerticalNav"
+                 OnToggleDarkMode="ToggleDarkMode"
+                 OnToggleNavOrientation="ToggleNavOrientation" />
     </header>
 
     <main>
@@ -22,3 +26,43 @@
     <a href="." class="reload">Reload</a>
     <span class="dismiss">🗙</span>
 </div>
+
+@code {
+    // Both settings live here since MainLayout wraps every page - it
+    // cascades IsDarkMode/IsVerticalNav down to NavMenu (for the toggle
+    // buttons) and applies matching classes to the outer .page element,
+    // which every page's own stylesheet keys its dark-mode overrides off.
+    private bool isDarkMode = false;
+    private bool isVerticalNav = false;
+
+    private void ToggleDarkMode() => isDarkMode = !isDarkMode;
+
+    private void ToggleNavOrientation() => isVerticalNav = !isVerticalNav;
+
+    // Drives MudThemeProvider so built-in MudBlazor components (buttons,
+    // dialogs, tables, inputs, snackbars) switch palette automatically
+    // alongside the custom DRPS-styled cards on each page.
+    private MudTheme _theme = new MudTheme
+    {
+        PaletteLight = new PaletteLight
+        {
+            Primary = "#2A5CD1",
+            Secondary = "#1F3F7A",
+            AppbarBackground = "#0B1626",
+            Background = "#F4F6FA",
+            Surface = "#FFFFFF"
+        },
+        PaletteDark = new PaletteDark
+        {
+            Primary = "#4A7FE8",
+            Secondary = "#2A5CD1",
+            AppbarBackground = "#0B1626",
+            Background = "#0F1B2E",
+            Surface = "#16233A",
+            DrawerBackground = "#0F1B2E",
+            AppbarText = "#FFFFFF",
+            TextPrimary = "#E8ECF5",
+            TextSecondary = "#8CA0BF"
+        }
+    };
+}

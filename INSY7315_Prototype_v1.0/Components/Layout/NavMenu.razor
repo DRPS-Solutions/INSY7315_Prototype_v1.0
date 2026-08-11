@@ -1,10 +1,26 @@
-﻿<div class="nav-container">
+﻿@using MudBlazor
+
+<div class="nav-container @(IsVerticalNav ? "nav-vertical" : "")">
     <div class="navbar navbar-dark">
         <div class="container-fluid d-flex align-items-center">
             <a class="navbar-brand d-flex align-items-center" href="">
                 <img src="images/logos/QULOOBUL MOE'MIENEEN Logo.png" class="app-logo" alt="Company Logo" style="height: 35px;" />
                 <span class="ms-2">QULOOBUL MOE'MIENEEN</span>
             </a>
+
+            <div class="nav-controls">
+                <MudIconButton Icon="@(IsVerticalNav ? Icons.Material.Filled.ViewAgenda : Icons.Material.Filled.ViewSidebar)"
+                               Color="Color.Inherit"
+                               Size="Size.Small"
+                               Title="@(IsVerticalNav ? "Switch to horizontal navigation" : "Switch to vertical navigation")"
+                               OnClick="@(() => OnToggleNavOrientation.InvokeAsync())" />
+
+                <MudIconButton Icon="@(IsDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                               Color="Color.Inherit"
+                               Size="Size.Small"
+                               Title="@(IsDarkMode ? "Switch to light mode" : "Switch to dark mode")"
+                               OnClick="@(() => OnToggleDarkMode.InvokeAsync())" />
+            </div>
 
             <input type="checkbox" title="Navigation menu" class="navbar-toggler" />
         </div>
@@ -44,3 +60,13 @@
         </nav>
     </div>
 </div>
+
+@code {
+    // Cascaded down from MainLayout, which owns both settings so they
+    // persist across page navigation (a per-page component would reset
+    // on every route change).
+    [Parameter] public bool IsDarkMode { get; set; }
+    [Parameter] public bool IsVerticalNav { get; set; }
+    [Parameter] public EventCallback OnToggleDarkMode { get; set; }
+    [Parameter] public EventCallback OnToggleNavOrientation { get; set; }
+}

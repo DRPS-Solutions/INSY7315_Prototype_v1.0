@@ -20,6 +20,21 @@
     color: white;
 }
 
+.nav-controls {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    color: white;
+    margin-left: auto;
+    margin-right: 4.5rem; /* clears the absolutely-positioned mobile hamburger */
+}
+
+@media (min-width: 900px) {
+    .nav-controls {
+        margin-right: 0.5rem;
+    }
+}
+
 .bi {
     display: inline-block;
     position: relative;
@@ -78,6 +93,56 @@
 .navbar-toggler:checked ~ .nav-scrollable {
     display: block;
 }
+
+/*
+   User-toggled vertical layout (from the sidebar/nav-orientation
+   button) - makes the nav a full-height left sidebar at any screen
+   width, independent of the responsive breakpoint below.
+*/
+.nav-container.nav-vertical {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
+
+    .nav-container.nav-vertical .navbar {
+        flex-shrink: 0;
+    }
+
+    .nav-container.nav-vertical .navbar-toggler {
+        display: none;
+    }
+
+    .nav-container.nav-vertical .nav-controls {
+        margin-right: 0.5rem;
+    }
+
+    .nav-container.nav-vertical .nav-scrollable {
+        display: block !important;
+        background-color: transparent;
+        flex: 1;
+        overflow-y: auto;
+    }
+
+    .nav-container.nav-vertical .drps-horizontal-nav {
+        flex-direction: column !important;
+        align-items: stretch;
+        gap: 4px;
+        padding: 0.5rem 0.75rem;
+    }
+
+    .nav-container.nav-vertical .nav-item {
+        padding-bottom: 0;
+    }
+
+        .nav-container.nav-vertical .nav-item ::deep .nav-link {
+            height: 3rem;
+            line-height: 3rem;
+            padding: 0 1rem;
+            justify-content: flex-start;
+            min-width: unset;
+            border-radius: 8px;
+        }
 
 /* 
    Transforms the layout into a horizontal bar on desktop views 
