@@ -22,27 +22,36 @@
 
             <div class="nav-item px-3">
                 <NavLink class="nav-link" href="tasks">
-                    <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Daily Tasks
+                    <span class="bi bi-check2-square-nav-menu" aria-hidden="true"></span> Daily Tasks
                 </NavLink>
             </div>
 
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="meetings">
-                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> Meetings
-                </NavLink>
-            </div>
+            @if (CanSeeMeetings)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="meetings">
+                        <span class="bi bi-people-fill-nav-menu" aria-hidden="true"></span> Meetings
+                    </NavLink>
+                </div>
+            }
 
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="users">
-                    <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> User Management
-                </NavLink>
-            </div>
+            @if (CanSeeUserManagement)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="users">
+                        <span class="bi bi-person-gear-nav-menu" aria-hidden="true"></span> User Management
+                    </NavLink>
+                </div>
+            }
 
-            <div class="nav-item px-3">
-                <NavLink class="nav-link" href="events">
-                    <span class="bi bi-calendar-event-fill-nav-menu" aria-hidden="true"></span> Event Planning
-                </NavLink>
-            </div>
+            @if (CanSeeEvents)
+            {
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="events">
+                        <span class="bi bi-calendar-event-fill-nav-menu" aria-hidden="true"></span> Event Planning
+                    </NavLink>
+                </div>
+            }
         </nav>
     </div>
 
@@ -76,9 +85,10 @@
         </MudMenu>
 
         <!--
-            Profile control - visual only for now, no auth wired up.
-            Toggling isLoggedIn just flips the label/icon so the
-            prototype reads as a near-final view of the navbar.
+            Profile control - now backed by MainLayout's real login
+            state (see CurrentRole/CurrentUserName/OnLogout below).
+            NavMenu itself is only rendered once MainLayout has a
+            logged-in role, so there's no "not signed in" branch here.
         -->
         <MudMenu Icon="@Icons.Material.Filled.AccountCircle"
                   Color="Color.Inherit"
@@ -87,13 +97,16 @@
                   AnchorOrigin="Origin.BottomRight"
                   TransformOrigin="Origin.TopRight">
             <MudText Typo="Typo.subtitle2" Class="px-4 pt-1 pb-2">
-                @(isLoggedIn ? "Signed in as Admin" : "Not signed in")
+                Signed in as @CurrentUserName
+            </MudText>
+            <MudText Typo="Typo.caption" Class="px-4 pb-2" Style="opacity:0.7;">
+                @RoleLabel
             </MudText>
             <MudDivider Class="my-1" />
-            <MudMenuItem OnClick="@ToggleLogin">
+            <MudMenuItem OnClick="@(() => OnLogout.InvokeAsync())">
                 <div class="d-flex align-items-center">
-                    <MudIcon Icon="@(isLoggedIn ? Icons.Material.Filled.Logout : Icons.Material.Filled.Login)" Class="me-2" Size="Size.Small" />
-                    <span>@(isLoggedIn ? "Logout" : "Login")</span>
+                    <MudIcon Icon="@Icons.Material.Filled.Logout" Class="me-2" Size="Size.Small" />
+                    <span>Logout</span>
                 </div>
             </MudMenuItem>
         </MudMenu>
@@ -109,9 +122,24 @@
     [Parameter] public EventCallback OnToggleDarkMode { get; set; }
     [Parameter] public EventCallback OnToggleNavOrientation { get; set; }
 
-    // Visual-only stand-in for real auth - just flips the menu's label
-    // and icon so the navbar reads as a near-final prototype view.
-    private bool isLoggedIn = true;
+    // Also cascaded from MainLayout. CurrentRole/CurrentUserName are
+    // for display in the profile menu only - tab visibility now comes
+    // straight from MainLayout as booleans below, computed there once
+    // as the single source of truth instead of re-derived here.
+    [Parameter] public string CurrentRole { get; set; } = string.Empty;
+    [Parameter] public string CurrentUserName { get; set; } = string.Empty;
+    [Parameter] public EventCallback OnLogout { get; set; }
 
-    private void ToggleLogin() => isLoggedIn = !isLoggedIn;
+    [Parameter] public bool CanSeeMeetings { get; set; }
+    [Parameter] public bool CanSeeUserManagement { get; set; }
+    [Parameter] public bool CanSeeEvents { get; set; }
+
+    private string RoleLabel => CurrentRole switch
+    {
+        "BasicStaff" => "Basic Staff",
+        "SecondaryStaff" => "Secondary Staff",
+        "ManagementStaff" => "Management Staff",
+        "Admin" => "Admin",
+        _ => string.Empty
+    };
 }

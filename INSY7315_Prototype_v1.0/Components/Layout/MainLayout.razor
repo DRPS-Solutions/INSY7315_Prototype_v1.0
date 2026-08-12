@@ -6,20 +6,82 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
-<div class="page @(isDarkMode ? "dark-mode" : "") @(isVerticalNav ? "nav-vertical" : "")">
-    <header class="top-navbar">
-        <NavMenu IsDarkMode="isDarkMode"
-                 IsVerticalNav="isVerticalNav"
-                 OnToggleDarkMode="ToggleDarkMode"
-                 OnToggleNavOrientation="ToggleNavOrientation" />
-    </header>
+@if (currentRole is null)
+{
+    <div class="page @(isDarkMode ? "dark-mode" : "")">
+        <div class="drps-login-wrap">
+            <button class="drps-login-theme-toggle"
+                    type="button"
+                    title="@(isDarkMode ? "Switch to light mode" : "Switch to dark mode")"
+                    @onclick="ToggleDarkMode">
+                <MudIcon Icon="@(isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)" Size="Size.Small" />
+            </button>
 
-    <main>
-        <article class="content px-4">
-            @Body
-        </article>
-    </main>
-</div>
+            <div class="drps-login-card">
+                <img src="images/logos/QULOOBUL MOE'MIENEEN Logo.png" alt="Company Logo" class="drps-login-logo" />
+                <MudText Typo="Typo.h5" Class="drps-login-title">QULOOBUL MOE'MIENEEN</MudText>
+                <MudText Typo="Typo.body2" Class="drps-login-subtitle">Sign in to continue</MudText>
+
+                <MudTextField @bind-Value="loginName"
+                              Label="Full name"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              Class="mt-4 mb-3" />
+
+                <MudSelect T="string" @bind-Value="selectedRole"
+                           Label="Role"
+                           Variant="Variant.Outlined"
+                           Margin="Margin.Dense"
+                           Class="mb-2">
+                    <MudSelectItem Value="@("BasicStaff")">Basic Staff</MudSelectItem>
+                    <MudSelectItem Value="@("SecondaryStaff")">Secondary Staff</MudSelectItem>
+                    <MudSelectItem Value="@("ManagementStaff")">Management Staff</MudSelectItem>
+                    <MudSelectItem Value="@("Admin")">Admin</MudSelectItem>
+                </MudSelect>
+
+                <MudText Typo="Typo.caption" Class="drps-login-hint">
+                    @RoleHint(selectedRole)
+                </MudText>
+
+                <MudButton Variant="Variant.Filled"
+                           Color="Color.Primary"
+                           FullWidth="true"
+                           Class="mt-4"
+                           Disabled="@(string.IsNullOrWhiteSpace(selectedRole))"
+                           OnClick="Login">
+                    Log In
+                </MudButton>
+
+                <MudText Typo="Typo.caption" Class="drps-login-footnote">
+                    Prototype sign-in - role only, no password yet.
+                </MudText>
+            </div>
+        </div>
+    </div>
+}
+else
+{
+    <div class="page @(isDarkMode ? "dark-mode" : "") @(isVerticalNav ? "nav-vertical" : "")">
+        <header class="top-navbar">
+            <NavMenu IsDarkMode="isDarkMode"
+                     IsVerticalNav="isVerticalNav"
+                     OnToggleDarkMode="ToggleDarkMode"
+                     OnToggleNavOrientation="ToggleNavOrientation"
+                     CurrentRole="currentRole"
+                     CurrentUserName="currentUserName"
+                     CanSeeMeetings="CanSeeMeetings"
+                     CanSeeUserManagement="CanSeeUserManagement"
+                     CanSeeEvents="CanSeeEvents"
+                     OnLogout="Logout" />
+        </header>
+
+        <main>
+            <article class="content px-4">
+                @Body
+            </article>
+        </main>
+    </div>
+}
 
 <div id="blazor-error-ui" data-nosnippet>
     An unhandled error has occurred.
@@ -35,9 +97,67 @@
     private bool isDarkMode = false;
     private bool isVerticalNav = false;
 
+    // null = not logged in, which renders the login screen instead of
+    // NavMenu + @Body below. A plain string keeps this prototype simple
+    // rather than adding a separate enum type to keep in sync across
+    // files - valid values are "BasicStaff", "SecondaryStaff",
+    // "ManagementStaff", "Admin". Living here (not a routable /login
+    // page) means it persists across navigation the same way dark
+    // mode/nav orientation already do.
+    private string? currentRole = null;
+    private string currentUserName = string.Empty;
+
+    private string loginName = string.Empty;
+    private string? selectedRole = null;
+
     private void ToggleDarkMode() => isDarkMode = !isDarkMode;
 
     private void ToggleNavOrientation() => isVerticalNav = !isVerticalNav;
+
+    private void Login()
+    {
+        if (string.IsNullOrWhiteSpace(selectedRole)) return;
+
+        currentRole = selectedRole;
+        currentUserName = string.IsNullOrWhiteSpace(loginName) ? RoleLabel(selectedRole) : loginName;
+    }
+
+    private void Logout()
+    {
+        currentRole = null;
+        currentUserName = string.Empty;
+        loginName = string.Empty;
+        selectedRole = null;
+    }
+
+    private static string RoleLabel(string role) => role switch
+    {
+        "BasicStaff" => "Basic Staff",
+        "SecondaryStaff" => "Secondary Staff",
+        "ManagementStaff" => "Management Staff",
+        "Admin" => "Admin",
+        _ => role
+    };
+
+    // Single source of truth for tab visibility, computed here from
+    // currentRole and passed to NavMenu as plain booleans - Home and
+    // Daily Tasks have no check since every role sees them.
+    // - Basic Staff: Home, Daily Tasks only
+    // - Secondary Staff: Basic Staff's tabs, plus User Management
+    // - Management Staff: everything except User Management
+    // - Admin: everything
+    private bool CanSeeMeetings => currentRole is "ManagementStaff" or "Admin";
+    private bool CanSeeUserManagement => currentRole is "SecondaryStaff" or "Admin";
+    private bool CanSeeEvents => currentRole is "ManagementStaff" or "Admin";
+
+    private static string RoleHint(string? role) => role switch
+    {
+        "BasicStaff" => "Sees Home and Daily Tasks.",
+        "SecondaryStaff" => "Sees Home, Daily Tasks, and User Management.",
+        "ManagementStaff" => "Sees everything except User Management.",
+        "Admin" => "Sees every tab.",
+        _ => "Pick a role to see which tabs it can access."
+    };
 
     // Drives MudThemeProvider so built-in MudBlazor components (buttons,
     // dialogs, tables, inputs, snackbars) switch palette automatically

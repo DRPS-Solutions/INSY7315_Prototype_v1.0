@@ -39,6 +39,90 @@ main {
     flex-direction: column;
 }
 
+/* --- Login screen --- */
+.drps-login-wrap {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background-image: linear-gradient(135deg, #0B1626 0%, #1F3F7A 100%);
+    position: relative;
+}
+
+.drps-login-theme-toggle {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.15);
+    border-radius: 50%;
+    width: 2.5rem;
+    height: 2.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    cursor: pointer;
+}
+
+.drps-login-card {
+    width: 100%;
+    max-width: 380px;
+    background: #FFFFFF;
+    border-radius: 16px;
+    padding: 32px 28px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.25);
+    text-align: center;
+    transition: background 0.2s ease;
+}
+
+.drps-login-logo {
+    height: 48px;
+    margin-bottom: 12px;
+}
+
+.drps-login-title {
+    color: #14243B;
+    font-weight: 700;
+}
+
+.drps-login-subtitle {
+    color: #6B7A90;
+    margin-bottom: 8px;
+    display: block;
+}
+
+.drps-login-hint {
+    display: block;
+    text-align: left;
+    color: #6B7A90;
+    min-height: 1.2em;
+}
+
+.drps-login-footnote {
+    display: block;
+    color: #C7CEDA;
+    margin-top: 16px;
+}
+
+.page.dark-mode .drps-login-card {
+    background: #16233A;
+}
+
+.page.dark-mode .drps-login-title {
+    color: #E8ECF5;
+}
+
+.page.dark-mode .drps-login-subtitle,
+.page.dark-mode .drps-login-hint {
+    color: #8CA0BF;
+}
+
+.page.dark-mode .drps-login-footnote {
+    color: #4C5C79;
+}
+
 .top-navbar {
     position: sticky;
     top: 0;
