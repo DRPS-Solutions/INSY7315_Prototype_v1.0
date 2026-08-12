@@ -16,19 +16,19 @@
     /* Page wrapper: defines the DRPS color palette as CSS variables and
        sets the light page background. */
     .drps-schedule {
-        --drps-navy-900: #0B1626;   /* darkest navy, used in gradients/headings */
-        --drps-navy-800: #14243B;   /* slightly lighter navy, task title text */
-        --drps-blue-600: #1F3F7A;   /* mid blue, gradient end for header */
-        --drps-blue-500: #2A5CD1;   /* primary accent blue, task card border */
-        --drps-blue-400: #4A7FE8;   /* lighter blue, gradient start / highlights */
-        --drps-bg: #F4F6FA;         /* overall page background */
+        --drps-navy-900: #12271F;   /* darkest navy, used in gradients/headings */
+        --drps-navy-800: #1C3D32;   /* slightly lighter navy, task title text */
+        --drps-blue-600: #2F5C4C;   /* mid blue, gradient end for header */
+        --drps-blue-500: #3C7A63;   /* primary accent blue, task card border */
+        --drps-blue-400: #6FA98C;   /* lighter blue, gradient start / highlights */
+        --drps-bg: #F5F3EC;         /* overall page background */
         --drps-surface: #FFFFFF;    /* card/panel background */
-        --drps-text-muted: #6B7A90; /* secondary/muted text color */
-        --drps-tint-blue: #EEF2FC;  /* low-priority task card/chip tint */
-        --drps-tint-amber: #FBF2E6; /* medium-priority task card/chip tint */
+        --drps-text-muted: #75806F; /* secondary/muted text color */
+        --drps-tint-blue: #EAF2ED;  /* low-priority task card/chip tint */
+        --drps-tint-amber: #F6EBD3; /* medium-priority task card/chip tint */
         --drps-tint-red: #FCEEF0;   /* high-priority task card/chip tint */
-        --drps-border-soft: #ECEFF4; /* hour-row and card hairlines */
-        --drps-empty: #C7CEDA;      /* empty-state / placeholder text */
+        --drps-border-soft: #E7E4D8; /* hour-row and card hairlines */
+        --drps-empty: #B7B2A0;      /* empty-state / placeholder text */
         --drps-shadow: rgba(11, 22, 38, 0.06); /* card drop shadow */
         background: var(--drps-bg);
         min-height: 100%;
@@ -204,7 +204,7 @@
     }
 
     .drps-task-card.priority-medium {
-        border-left-color: #D98C1F;
+        border-left-color: #B9862E;
         background: var(--drps-tint-amber);
     }
 
@@ -337,7 +337,7 @@
     }
 
     .drps-allday-chip.priority-medium {
-        border-left-color: #D98C1F;
+        border-left-color: #B9862E;
         background: var(--drps-tint-amber);
     }
 
@@ -381,15 +381,15 @@
 
     /* --- Dark mode overrides --- */
     .page.dark-mode .drps-schedule {
-        --drps-bg: #0F1B2E;
-        --drps-surface: #16233A;
-        --drps-text-muted: #8CA0BF;
-        --drps-navy-800: #E8ECF5;
-        --drps-tint-blue: rgba(74, 127, 232, 0.16);
-        --drps-tint-amber: rgba(217, 140, 31, 0.18);
+        --drps-bg: #0B1B21;
+        --drps-surface: #1E362B;
+        --drps-text-muted: #93A69A;
+        --drps-navy-800: #E9F0EA;
+        --drps-tint-blue: rgba(60, 122, 99, 0.16);
+        --drps-tint-amber: rgba(185, 134, 46, 0.18);
         --drps-tint-red: rgba(224, 67, 92, 0.16);
-        --drps-border-soft: #22314C;
-        --drps-empty: #4C5C79;
+        --drps-border-soft: #2E4A3B;
+        --drps-empty: #4E5F52;
         --drps-shadow: rgba(0, 0, 0, 0.35);
     }
 </style>
@@ -458,15 +458,15 @@
         </div>
 
         @* --- Completion summary for the selected day --- *@
-        <MudText Typo="Typo.body2" Class="mb-3" Style="color:#6B7A90;">
+        <MudText Typo="Typo.body2" Class="mb-3" Style="color:#75806F;">
             @(TasksForSelectedDay.Count() == 0 ? "No tasks scheduled" : $"{TasksForSelectedDay.Count(t => t.IsDone)} of {TasksForSelectedDay.Count()} completed")
         </MudText>
 
         @* --- Legend explaining the priority accent colors --- *@
         <div class="drps-legend">
             <div class="drps-legend-item"><span class="drps-legend-dot" style="background:#E0435C;"></span>High</div>
-            <div class="drps-legend-item"><span class="drps-legend-dot" style="background:#D98C1F;"></span>Medium</div>
-            <div class="drps-legend-item"><span class="drps-legend-dot" style="background:#2A5CD1;"></span>Low</div>
+            <div class="drps-legend-item"><span class="drps-legend-dot" style="background:#B9862E;"></span>Medium</div>
+            <div class="drps-legend-item"><span class="drps-legend-dot" style="background:#3C7A63;"></span>Low</div>
         </div>
 
         @* --- All-day tasks: things not tied to a specific hour --- *@

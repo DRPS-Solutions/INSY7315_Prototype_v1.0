@@ -3,12 +3,12 @@
     display: flex;
     flex-direction: column;
     min-height: 100vh;
-    background: #F4F6FA;
+    background: #F5F3EC;
     transition: background 0.2s ease;
 }
 
     .page.dark-mode {
-        background: #0F1B2E;
+        background: #0B1B21;
     }
 
     /* Vertical nav mode: the top navbar becomes a fixed-width left
@@ -46,7 +46,7 @@ main {
     align-items: center;
     justify-content: center;
     padding: 24px;
-    background-image: linear-gradient(135deg, #0B1626 0%, #1F3F7A 100%);
+    background-image: linear-gradient(135deg, #12271F 0%, #2F5C4C 100%);
     position: relative;
 }
 
@@ -83,12 +83,12 @@ main {
 }
 
 .drps-login-title {
-    color: #14243B;
+    color: #1C3D32;
     font-weight: 700;
 }
 
 .drps-login-subtitle {
-    color: #6B7A90;
+    color: #75806F;
     margin-bottom: 8px;
     display: block;
 }
@@ -96,31 +96,31 @@ main {
 .drps-login-hint {
     display: block;
     text-align: left;
-    color: #6B7A90;
+    color: #75806F;
     min-height: 1.2em;
 }
 
 .drps-login-footnote {
     display: block;
-    color: #C7CEDA;
+    color: #B7B2A0;
     margin-top: 16px;
 }
 
 .page.dark-mode .drps-login-card {
-    background: #16233A;
+    background: #1E362B;
 }
 
 .page.dark-mode .drps-login-title {
-    color: #E8ECF5;
+    color: #E9F0EA;
 }
 
 .page.dark-mode .drps-login-subtitle,
 .page.dark-mode .drps-login-hint {
-    color: #8CA0BF;
+    color: #93A69A;
 }
 
 .page.dark-mode .drps-login-footnote {
-    color: #4C5C79;
+    color: #4E5F52;
 }
 
 .top-navbar {
@@ -129,7 +129,7 @@ main {
     z-index: 100;
     width: 100%;
     /* Matches the DRPS navy-to-blue gradient */
-    background-image: linear-gradient(135deg, #0B1626 0%, #1F3F7A 100%);
+    background-image: linear-gradient(135deg, #12271F 0%, #2F5C4C 100%);
     box-shadow: 0 2px 10px rgba(0,0,0,0.2);
 }
 

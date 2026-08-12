@@ -15,20 +15,26 @@
    ===================================================================== *@
 <style>
     .drps-notifications {
-        --drps-navy-900: #0B1626;
-        --drps-navy-800: #14243B;
-        --drps-blue-600: #1F3F7A;
-        --drps-blue-500: #2A5CD1;
-        --drps-blue-400: #4A7FE8;
-        --drps-bg: #F4F6FA;
+        --drps-navy-900: #12271F;
+        --drps-navy-800: #1C3D32;
+        --drps-blue-600: #2F5C4C;
+        --drps-blue-500: #3C7A63;
+        --drps-blue-400: #6FA98C;
+        --drps-bg: #F5F3EC;
         --drps-surface: #FFFFFF;
-        --drps-text-muted: #6B7A90;
-        --drps-tint-blue: #EEF2FC;
-        --drps-tint-amber: #FBF2E6;
-        --drps-tint-green: #EAF7EF;
-        --drps-border-soft: #ECEFF4;
-        --drps-empty: #C7CEDA;
+        --drps-text-muted: #75806F;
+        --drps-tint-blue: #EAF2ED;
+        --drps-tint-amber: #F6EBD3;
+        --drps-tint-green: #E7F3EB;
+        --drps-border-soft: #E7E4D8;
+        --drps-empty: #B7B2A0;
         --drps-shadow: rgba(11, 22, 38, 0.06);
+        /* Dedicated accent blue, kept separate from --drps-blue-500/
+           --drps-tint-blue above (which are now brand green) - used
+           only for the "linked to event/task" reference chip below, so
+           the palette keeps a small, deliberate blue accent. */
+        --drps-accent-blue: #2A5CD1;
+        --drps-tint-accent-blue: #EEF2FC;
         background: var(--drps-bg);
         min-height: 100%;
         padding-bottom: 2rem;
@@ -128,7 +134,7 @@
 
     .drps-notif-icon.resource-request {
         background: var(--drps-tint-amber);
-        color: #D98C1F;
+        color: #B9862E;
     }
 
     .drps-notif-icon.event-assignment {
@@ -187,8 +193,8 @@
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        background: var(--drps-tint-blue);
-        color: var(--drps-blue-500);
+        background: var(--drps-tint-accent-blue);
+        color: var(--drps-accent-blue);
         border-radius: 6px;
         padding: 2px 8px;
         font-size: 0.72rem;
@@ -204,16 +210,17 @@
 
     /* --- Dark mode overrides --- */
     .page.dark-mode .drps-notifications {
-        --drps-bg: #0F1B2E;
-        --drps-surface: #16233A;
-        --drps-text-muted: #8CA0BF;
-        --drps-navy-800: #E8ECF5;
-        --drps-tint-blue: rgba(74, 127, 232, 0.16);
-        --drps-tint-amber: rgba(217, 140, 31, 0.18);
+        --drps-bg: #0B1B21;
+        --drps-surface: #1E362B;
+        --drps-text-muted: #93A69A;
+        --drps-navy-800: #E9F0EA;
+        --drps-tint-blue: rgba(60, 122, 99, 0.16);
+        --drps-tint-amber: rgba(185, 134, 46, 0.18);
         --drps-tint-green: rgba(46, 158, 91, 0.16);
-        --drps-border-soft: #22314C;
-        --drps-empty: #4C5C79;
+        --drps-border-soft: #2E4A3B;
+        --drps-empty: #4E5F52;
         --drps-shadow: rgba(0, 0, 0, 0.35);
+        --drps-tint-accent-blue: rgba(42, 92, 209, 0.18);
     }
 </style>
 

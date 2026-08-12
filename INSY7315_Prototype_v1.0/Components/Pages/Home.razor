@@ -7,17 +7,17 @@
 
 <style>
     .drps-home {
-        --drps-navy-800: #14243B;
-        --drps-blue-500: #2A5CD1;
-        --drps-blue-400: #4A7FE8;
-        --drps-bg: #F4F6FA;
+        --drps-navy-800: #1C3D32;
+        --drps-blue-500: #3C7A63;
+        --drps-blue-400: #6FA98C;
+        --drps-bg: #F5F3EC;
         --drps-surface: #FFFFFF;
-        --drps-text-muted: #6B7A90;
-        --drps-border-soft: #EAEFEF;
-        --drps-tint-green: #F0F9F4;
-        --drps-tint-green-border: #C6EAD4;
-        --drps-hairline: #F0F2F7;
-        --drps-empty: #C7CEDA;
+        --drps-text-muted: #75806F;
+        --drps-border-soft: #E7E4D8;
+        --drps-tint-green: #E7F3EB;
+        --drps-tint-green-border: #A9CDB8;
+        --drps-hairline: #F1EEE2;
+        --drps-empty: #B7B2A0;
         --drps-shadow: rgba(11, 22, 38, 0.06);
         background: var(--drps-bg);
         min-height: calc(100vh - 70px);
@@ -25,7 +25,7 @@
     }
 
     .drps-header {
-        background: linear-gradient(135deg, #0B1626 0%, #1F3F7A 100%);
+        background: linear-gradient(135deg, #12271F 0%, #2F5C4C 100%);
         border-radius: 16px;
         padding: 20px 24px;
         color: white;
@@ -126,15 +126,15 @@
 
     /* --- Dark mode overrides --- */
     .page.dark-mode .drps-home {
-        --drps-bg: #0F1B2E;
-        --drps-surface: #16233A;
-        --drps-text-muted: #8CA0BF;
-        --drps-navy-800: #E8ECF5;
-        --drps-border-soft: #22314C;
+        --drps-bg: #0B1B21;
+        --drps-surface: #1E362B;
+        --drps-text-muted: #93A69A;
+        --drps-navy-800: #E9F0EA;
+        --drps-border-soft: #2E4A3B;
         --drps-tint-green: rgba(46, 158, 91, 0.16);
         --drps-tint-green-border: rgba(46, 158, 91, 0.4);
-        --drps-hairline: #22314C;
-        --drps-empty: #4C5C79;
+        --drps-hairline: #2E4A3B;
+        --drps-empty: #4E5F52;
         --drps-shadow: rgba(0, 0, 0, 0.35);
     }
 </style>
@@ -149,7 +149,7 @@
                     @DateTime.Today.ToString("dddd, dd MMMM yyyy")
                 </MudText>
             </div>
-            <MudChip T="string" Color="Color.Info" Variant="Variant.Filled">
+            <MudChip T="string" Color="Color.Primary" Variant="Variant.Filled">
                 @completedCount of @todayTasks.Count completed today
             </MudChip>
         </div>

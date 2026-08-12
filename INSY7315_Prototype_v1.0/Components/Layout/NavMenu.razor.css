@@ -205,6 +205,24 @@
         border-top: 1px solid rgba(255, 255, 255, 0.1);
     }
 
+        /*
+           Vertical sidebar only: reorder to Profile, Settings, Bell.
+           Markup order (bell, settings, profile) stays untouched so the
+           horizontal/mobile layout below is unaffected - only the flex
+           "order" changes here.
+        */
+        .nav-container.nav-vertical .nav-end > *:nth-child(1) {
+            order: 3; /* bell */
+        }
+
+        .nav-container.nav-vertical .nav-end > *:nth-child(2) {
+            order: 2; /* settings */
+        }
+
+        .nav-container.nav-vertical .nav-end > *:nth-child(3) {
+            order: 1; /* profile */
+        }
+
 /*
    Transforms the layout into a horizontal bar on desktop views.
    Explicitly excludes nav-vertical so this padding/centering never
