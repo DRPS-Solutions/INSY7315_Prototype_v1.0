@@ -1,4 +1,7 @@
 ﻿@using MudBlazor
+@implements IDisposable
+@inject NavigationManager Navigation
+@inject NotificationService NotificationService
 
 <div class="nav-container @(IsVerticalNav ? "nav-vertical" : "")">
     <div class="navbar navbar-dark">
@@ -73,6 +76,26 @@
         bottom of the sidebar in vertical mode.
     -->
     <div class="nav-end">
+        <!--
+            Notification bell - unlike the two MudMenus below, this is a
+            plain nav link (not a dropdown): clicking it takes the user
+            straight to the /notifications page. The badge count comes
+            from NotificationService and updates live via OnChange, e.g.
+            the moment a new resource request or event assignment fires
+            elsewhere in the app.
+        -->
+        <MudBadge Content="@NotificationService.UnreadCount"
+                  Color="Color.Error"
+                  Overlap="true"
+                  Visible="@(NotificationService.UnreadCount > 0)"
+                  Class="mx-1">
+            <MudIconButton Icon="@Icons.Material.Filled.Notifications"
+                            Color="Color.Inherit"
+                            Size="Size.Small"
+                            Title="Notifications"
+                            OnClick="@(() => Navigation.NavigateTo("notifications"))" />
+        </MudBadge>
+
         <MudMenu Icon="@Icons.Material.Filled.Settings"
                   Color="Color.Inherit"
                   Size="Size.Small"
@@ -151,4 +174,16 @@
         "Admin" => "Admin",
         _ => string.Empty
     };
+
+    // Re-render whenever a notification is added/read elsewhere in the
+    // app so the badge count on the bell never goes stale.
+    protected override void OnInitialized()
+    {
+        NotificationService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnChange -= StateHasChanged;
+    }
 }

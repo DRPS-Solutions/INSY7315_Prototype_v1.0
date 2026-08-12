@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using MudBlazor
 @inject IDialogService DialogService
+@inject NotificationService NotificationService
 
 <PageTitle>Resource Requests</PageTitle>
 
@@ -421,18 +422,30 @@
     {
         if (!CanSubmit) return;
 
+        var requestedBy = string.IsNullOrWhiteSpace(CurrentUserName) ? "You" : CurrentUserName!;
+        var title = newRequest.Title.Trim();
+
         requests.Add(new ResourceRequest
         {
-            Title = newRequest.Title.Trim(),
+            Title = title,
             ResourceType = newRequest.ResourceType,
             Amount = newRequest.Amount,
             Notes = newRequest.Notes,
             LinkType = newRequest.LinkType,
             LinkedName = newRequest.LinkType == "None" ? null : newRequest.LinkedName,
-            RequestedBy = string.IsNullOrWhiteSpace(CurrentUserName) ? "You" : CurrentUserName!,
+            RequestedBy = requestedBy,
             RequestedDate = DateTime.Now,
             Status = RequestStatus.Pending
         });
+
+        // Notify (in this prototype, notifications aren't scoped to a
+        // specific recipient - Admins would be the real audience for a
+        // "new request awaiting review" notification).
+        NotificationService.Add(
+            NotificationType.ResourceRequest,
+            "New resource request",
+            $"{requestedBy} requested \"{title}\"" + (newRequest.LinkType != "None" && !string.IsNullOrWhiteSpace(newRequest.LinkedName) ? $" for {newRequest.LinkedName}." : "."),
+            newRequest.LinkType == "None" ? null : newRequest.LinkedName);
 
         // Reset the form, but keep the last-used resource type since
         // people often submit a few similar requests in a row.
@@ -453,6 +466,12 @@
         req.Status = RequestStatus.Approved;
         req.ReviewedBy = string.IsNullOrWhiteSpace(CurrentUserName) ? "Admin" : CurrentUserName!;
         req.ReviewedDate = DateTime.Now;
+
+        NotificationService.Add(
+            NotificationType.ResourceRequest,
+            "Request approved",
+            $"{req.ReviewedBy} approved your \"{req.Title}\" request.",
+            req.LinkedName);
     }
 
     // Deny opens DenyRequestDialog so the admin can optionally leave a
@@ -474,6 +493,13 @@
             req.ReviewedBy = string.IsNullOrWhiteSpace(CurrentUserName) ? "Admin" : CurrentUserName!;
             req.ReviewedDate = DateTime.Now;
             req.DenyReason = result.Data as string;
+
+            var reasonSuffix = string.IsNullOrWhiteSpace(req.DenyReason) ? "" : $" Reason: {req.DenyReason}";
+            NotificationService.Add(
+                NotificationType.ResourceRequest,
+                "Request denied",
+                $"{req.ReviewedBy} denied your \"{req.Title}\" request.{reasonSuffix}",
+                req.LinkedName);
         }
     }
 

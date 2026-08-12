@@ -1,13 +1,17 @@
 ﻿@page "/events"
 @rendermode InteractiveServer
 @using MudBlazor
+@using Microsoft.AspNetCore.Components.Web
+@inject NotificationService NotificationService
 
 <PageTitle>Event Planning</PageTitle>
 
 @* =====================================================================
    STYLE BLOCK
-   Reuses the standard DRPS navy/blue palette and card conventions
-   scoped specifically to the event planning view[cite: 4, 5, 6].
+   Reuses the standard DRPS navy/blue palette and card conventions,
+   scoped under .drps-events. Extended from the original two-column
+   (form + list) layout to a roster + detail layout, so existing events
+   can be selected, viewed, and edited in place - see MARKUP below.
    ===================================================================== *@
 <style>
     .drps-events {
@@ -20,6 +24,8 @@
         --drps-surface: #FFFFFF;
         --drps-text-muted: #6B7A90;
         --drps-tint-blue: #EEF2FC;
+        --drps-border-soft: #ECEFF4;
+        --drps-hover: #F7F9FC;
         --drps-empty: #C7CEDA;
         --drps-shadow: rgba(11, 22, 38, 0.06);
         background: var(--drps-bg);
@@ -52,32 +58,176 @@
         margin-bottom: 16px;
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 8px;
     }
 
-    .drps-event-item {
-        border-radius: 8px;
-        padding: 12px 16px;
-        background: var(--drps-tint-blue);
-        border-left: 4px solid var(--drps-blue-500);
-        margin-bottom: 12px;
+    .drps-card-title .drps-card-title-text {
         display: flex;
-        flex-direction: column;
-        gap: 4px;
+        align-items: center;
+        gap: 8px;
     }
 
-    .drps-event-title {
-        font-size: 0.95rem;
+    /* --- Left column: event roster --- */
+    .drps-roster {
+        padding: 8px 0;
+        max-height: 620px;
+        overflow-y: auto;
+    }
+
+    .drps-roster-item {
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+        padding: 12px 16px;
+        cursor: pointer;
+        border-left: 3px solid transparent;
+        border-radius: 8px;
+        transition: background 0.15s ease;
+    }
+
+    .drps-roster-item:hover {
+        background: var(--drps-hover);
+    }
+
+    .drps-roster-item.selected {
+        background: var(--drps-tint-blue);
+        border-left-color: var(--drps-blue-500);
+    }
+
+    .drps-roster-title {
+        font-size: 0.9rem;
         font-weight: 600;
         color: var(--drps-navy-800);
     }
 
-    .drps-event-meta {
-        font-size: 0.8rem;
+    .drps-roster-meta {
+        font-size: 0.76rem;
         color: var(--drps-text-muted);
         display: flex;
         align-items: center;
-        gap: 6px;
+        gap: 5px;
+    }
+
+    /* --- Right column: detail / edit / create panel --- */
+    .drps-empty-detail {
+        color: var(--drps-empty);
+        font-size: 0.9rem;
+        text-align: center;
+        padding: 60px 20px;
+    }
+
+    .drps-detail-title {
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--drps-navy-800);
+    }
+
+    .drps-detail-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 14px;
+        margin-top: 6px;
+        margin-bottom: 18px;
+        font-size: 0.82rem;
+        color: var(--drps-text-muted);
+    }
+
+    .drps-detail-meta span {
+        display: flex;
+        align-items: center;
+        gap: 5px;
+    }
+
+    .drps-section-label {
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: var(--drps-text-muted);
+        margin: 18px 0 8px;
+    }
+
+    .drps-section-label:first-of-type {
+        margin-top: 0;
+    }
+
+    .drps-description-text {
+        font-size: 0.88rem;
+        color: var(--drps-navy-800);
+        line-height: 1.5;
+    }
+
+    /* --- Budget/capacity mini stat cards (view mode) --- */
+    .drps-stat-row {
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+    }
+
+    .drps-stat-card {
+        flex: 1;
+        min-width: 140px;
+        background: var(--drps-bg);
+        border-radius: 12px;
+        padding: 12px 16px;
+        border-left: 4px solid var(--drps-blue-500);
+    }
+
+    .drps-stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--drps-navy-800);
+    }
+
+    .drps-stat-label {
+        font-size: 0.72rem;
+        color: var(--drps-text-muted);
+    }
+
+    /* --- Chips: assigned staff (view mode) and required resources
+       (both view and edit mode) --- */
+    .drps-tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+    }
+
+    .drps-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--drps-tint-blue);
+        color: var(--drps-blue-500);
+        border-radius: 999px;
+        padding: 4px 6px 4px 12px;
+        font-size: 0.78rem;
+        font-weight: 600;
+    }
+
+    .drps-tag.static {
+        padding: 4px 12px;
+    }
+
+    .drps-tag-empty {
+        color: var(--drps-empty);
+        font-size: 0.82rem;
+    }
+
+    /* --- Staff checkbox grid (create/edit form) --- */
+    .drps-staff-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 2px 8px;
+        background: var(--drps-bg);
+        border-radius: 10px;
+        padding: 8px 12px;
+    }
+
+    .drps-form-actions {
+        display: flex;
+        gap: 10px;
+        margin-top: 8px;
     }
 
     .drps-event-empty {
@@ -94,11 +244,22 @@
         --drps-text-muted: #8CA0BF;
         --drps-navy-800: #E8ECF5;
         --drps-tint-blue: rgba(74, 127, 232, 0.16);
+        --drps-border-soft: #22314C;
+        --drps-hover: #1C2A44;
         --drps-empty: #4C5C79;
         --drps-shadow: rgba(0, 0, 0, 0.35);
     }
 </style>
 
+@* =====================================================================
+   MARKUP
+   Left column: scrollable roster of all events - click one to view it,
+   or use the "+ New" button to start a blank one.
+   Right column: three mutually-exclusive states -
+     1. isCreating or isEditing -> the shared event form
+     2. selectedEvent is set (and not editing) -> read-only detail view
+     3. neither -> an empty-state prompt
+   ===================================================================== *@
 <div class="drps-events">
     <MudContainer MaxWidth="MaxWidth.Large" Class="pt-6">
 
@@ -108,41 +269,21 @@
         </div>
 
         <MudGrid>
-            @* Left Column: Event Creation Form *@
+            @* --- Left Column: Event Roster --- *@
             <MudItem xs="12" md="5">
                 <div class="drps-card">
                     <div class="drps-card-title">
-                        <MudIcon Icon="@Icons.Material.Filled.AddBox" Size="Size.Small" />
-                        Create New Event
-                    </div>
-                    
-                    <MudTextField T="string" @bind-Value="newEvent.Title" Label="Event Title" Variant="Variant.Outlined" Class="mb-3" />
-                    <MudTextField T="string" @bind-Value="newEvent.Location" Label="Location" Variant="Variant.Outlined" Class="mb-3" />
-                    
-                    <div class="d-flex gap-3 mb-3">
-                        <MudDatePicker @bind-Date="newEvent.Date" Label="Date" Variant="Variant.Outlined" />
-                        <MudTimePicker @bind-Time="newEvent.Time" Label="Time" Variant="Variant.Outlined" />
-                    </div>
-
-                    <MudSelect T="string" Label="Lead Coordinator" Variant="Variant.Outlined" @bind-Value="newEvent.Coordinator" Class="mb-4">
-                        @foreach (var emp in employees)
-                        {
-                            <MudSelectItem T="string" Value="@emp">@emp</MudSelectItem>
-                        }
-                    </MudSelect>
-
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" FullWidth="true" OnClick="AddEvent">
-                        Schedule Event
-                    </MudButton>
-                </div>
-            </MudItem>
-
-            @* Right Column: Upcoming Events Roster *@
-            <MudItem xs="12" md="7">
-                <div class="drps-card">
-                    <div class="drps-card-title">
-                        <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" />
-                        Upcoming Events
+                        <div class="drps-card-title-text">
+                            <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small" />
+                            All Events
+                        </div>
+                        <MudButton Variant="Variant.Filled"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="StartCreate">
+                            New
+                        </MudButton>
                     </div>
 
                     @if (!plannedEvents.Any())
@@ -151,24 +292,184 @@
                     }
                     else
                     {
-                        @foreach (var evt in plannedEvents.OrderBy(e => e.Date))
+                        <div class="drps-roster">
+                            @foreach (var evt in plannedEvents.OrderBy(e => e.Date))
+                            {
+                                var cssClass = "drps-roster-item" + (selectedEvent == evt && !isCreating ? " selected" : "");
+                                <div class="@cssClass" @onclick="() => SelectEvent(evt)">
+                                    <div class="drps-roster-title">@evt.Title</div>
+                                    <div class="drps-roster-meta">
+                                        <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
+                                        @(evt.Date?.ToString("dd MMM yyyy")) at @(evt.Time?.ToString(@"hh\:mm"))
+                                    </div>
+                                    <div class="drps-roster-meta">
+                                        <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" />
+                                        @(string.IsNullOrWhiteSpace(evt.Location) ? "No location set" : evt.Location)
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </MudItem>
+
+            @* --- Right Column: Detail / Edit / Create Panel --- *@
+            <MudItem xs="12" md="7">
+                <div class="drps-card">
+                    @if (isCreating || isEditing)
+                    {
+                        @* ---------- Shared create/edit form ---------- *@
+                        <div class="drps-card-title">
+                            <div class="drps-card-title-text">
+                                <MudIcon Icon="@(isCreating ? Icons.Material.Filled.AddBox : Icons.Material.Filled.Edit)" Size="Size.Small" />
+                                @(isCreating ? "Create New Event" : "Edit Event")
+                            </div>
+                        </div>
+
+                        <MudTextField T="string" @bind-Value="editingEvent!.Title" Label="Event Title" Variant="Variant.Outlined" Class="mb-3" />
+                        <MudTextField T="string" @bind-Value="editingEvent!.Description" Label="Description" Variant="Variant.Outlined" Lines="3" Class="mb-3" />
+                        <MudTextField T="string" @bind-Value="editingEvent!.Location" Label="Location" Variant="Variant.Outlined" Class="mb-3" />
+
+                        <div class="d-flex gap-3 mb-3">
+                            <MudDatePicker @bind-Date="editingEvent!.Date" Label="Date" Variant="Variant.Outlined" />
+                            <MudTimePicker @bind-Time="editingEvent!.Time" Label="Time" Variant="Variant.Outlined" />
+                        </div>
+
+                        <MudSelect T="string" Label="Lead Coordinator" Variant="Variant.Outlined" @bind-Value="editingEvent!.Coordinator" Class="mb-3">
+                            @foreach (var emp in employees)
+                            {
+                                <MudSelectItem T="string" Value="@emp">@emp</MudSelectItem>
+                            }
+                        </MudSelect>
+
+                        <div class="d-flex gap-3 mb-3">
+                            <MudNumericField T="decimal?" @bind-Value="editingEvent!.EstimatedBudget" Label="Estimated Budget (R)" Variant="Variant.Outlined" Min="0" />
+                            <MudNumericField T="int?" @bind-Value="editingEvent!.EstimatedCapacity" Label="Estimated Capacity" Variant="Variant.Outlined" Min="0" />
+                        </div>
+
+                        <div class="drps-section-label">Staff Helping</div>
+                        <div class="drps-staff-grid mb-3">
+                            @foreach (var emp in employees)
+                            {
+                                <MudCheckBox T="bool"
+                                             Value="@editingEvent!.StaffMembers.Contains(emp)"
+                                             ValueChanged="@((bool v) => ToggleStaff(emp, v))"
+                                             Label="@emp"
+                                             Color="Color.Primary"
+                                             Dense="true" />
+                            }
+                        </div>
+
+                        <div class="drps-section-label">Required Resources</div>
+                        <div class="d-flex gap-2 mb-2">
+                            <MudTextField T="string"
+                                          @bind-Value="newResourceInput"
+                                          Label="Add a resource"
+                                          Placeholder="e.g. Projector, 6 folding tables"
+                                          Variant="Variant.Outlined"
+                                          Immediate="true"
+                                          @onkeydown="OnResourceKeyDown"
+                                          Class="flex-grow-1" />
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" OnClick="AddResource">Add</MudButton>
+                        </div>
+                        @if (editingEvent!.RequiredResources.Any())
                         {
-                            <div class="drps-event-item">
-                                <div class="drps-event-title">@evt.Title</div>
-                                <div class="drps-event-meta">
-                                    <MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" />
-                                    @(evt.Date?.ToString("dd MMM yyyy")) at @(evt.Time?.ToString(@"hh\:mm"))
-                                </div>
-                                <div class="drps-event-meta">
-                                    <MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" />
-                                    @evt.Location
-                                </div>
-                                <div class="drps-event-meta">
-                                    <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
-                                    Lead: @evt.Coordinator
-                                </div>
+                            <div class="drps-tag-row mb-4">
+                                @foreach (var resource in editingEvent!.RequiredResources)
+                                {
+                                    <div class="drps-tag">
+                                        @resource
+                                        <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small" OnClick="@(() => RemoveResource(resource))" />
+                                    </div>
+                                }
                             </div>
                         }
+                        else
+                        {
+                            <div class="drps-tag-empty mb-4">No resources added yet.</div>
+                        }
+
+                        <div class="drps-form-actions">
+                            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!CanSave)" OnClick="SaveEvent">
+                                @(isCreating ? "Schedule Event" : "Save Changes")
+                            </MudButton>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Secondary" OnClick="CancelForm">
+                                Cancel
+                            </MudButton>
+                        </div>
+                    }
+                    else if (selectedEvent is not null)
+                    {
+                        @* ---------- Read-only detail view ---------- *@
+                        var evt = selectedEvent;
+                        <div class="drps-card-title">
+                            <div class="drps-detail-title">@evt.Title</div>
+                            <MudButton Variant="Variant.Outlined" Color="Color.Primary" Size="Size.Small" StartIcon="@Icons.Material.Filled.Edit" OnClick="StartEdit">
+                                Edit
+                            </MudButton>
+                        </div>
+
+                        <div class="drps-detail-meta">
+                            <span><MudIcon Icon="@Icons.Material.Filled.CalendarToday" Size="Size.Small" /> @(evt.Date?.ToString("dd MMM yyyy")) at @(evt.Time?.ToString(@"hh\:mm"))</span>
+                            <span><MudIcon Icon="@Icons.Material.Filled.LocationOn" Size="Size.Small" /> @(string.IsNullOrWhiteSpace(evt.Location) ? "No location set" : evt.Location)</span>
+                            <span><MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" /> Lead: @(string.IsNullOrWhiteSpace(evt.Coordinator) ? "Unassigned" : evt.Coordinator)</span>
+                        </div>
+
+                        @if (!string.IsNullOrWhiteSpace(evt.Description))
+                        {
+                            <div class="drps-section-label">Description</div>
+                            <div class="drps-description-text">@evt.Description</div>
+                        }
+
+                        <div class="drps-section-label">Budget & Capacity</div>
+                        <div class="drps-stat-row">
+                            <div class="drps-stat-card">
+                                <div class="drps-stat-value">@(evt.EstimatedBudget.HasValue ? $"R {evt.EstimatedBudget.Value:N0}" : "—")</div>
+                                <div class="drps-stat-label">Estimated Budget</div>
+                            </div>
+                            <div class="drps-stat-card">
+                                <div class="drps-stat-value">@(evt.EstimatedCapacity.HasValue ? evt.EstimatedCapacity.Value.ToString() : "—")</div>
+                                <div class="drps-stat-label">Estimated Capacity</div>
+                            </div>
+                        </div>
+
+                        <div class="drps-section-label">Staff Helping (@evt.StaffMembers.Count)</div>
+                        @if (evt.StaffMembers.Any())
+                        {
+                            <div class="drps-tag-row">
+                                @foreach (var staff in evt.StaffMembers)
+                                {
+                                    <div class="drps-tag static">@staff</div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="drps-tag-empty">No staff assigned yet.</div>
+                        }
+
+                        <div class="drps-section-label">Required Resources</div>
+                        @if (evt.RequiredResources.Any())
+                        {
+                            <div class="drps-tag-row">
+                                @foreach (var resource in evt.RequiredResources)
+                                {
+                                    <div class="drps-tag static">@resource</div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="drps-tag-empty">No resources listed yet.</div>
+                        }
+                    }
+                    else
+                    {
+                        @* ---------- Nothing selected ---------- *@
+                        <div class="drps-empty-detail">
+                            <MudIcon Icon="@Icons.Material.Filled.EventNote" Size="Size.Large" Style="opacity:0.5;" />
+                            <div class="mt-2">Select an event on the left to view its details,<br />or click "New" to plan one.</div>
+                        </div>
                     }
                 </div>
             </MudItem>
@@ -178,10 +479,8 @@
 </div>
 
 @code {
-    // Model for capturing form input
-    private EventModel newEvent = new EventModel();
-    
-    // Roster of established employees pulled from other pages[cite: 4, 6]
+    // Roster of established employees, reused both for the "Lead
+    // Coordinator" dropdown and the "Staff Helping" checkbox list.
     private List<string> employees = new()
     {
         "Naledi Dube",
@@ -191,42 +490,228 @@
         "Grace Adeyemi"
     };
 
-    // Placeholder list of existing events
+    // Placeholder list of existing events.
     private List<EventModel> plannedEvents = new()
     {
-        new EventModel { 
-            Title = "Annual Donor Gala", 
-            Date = DateTime.Today.AddDays(14), 
+        new EventModel
+        {
+            Title = "Annual Donor Gala",
+            Description = "Formal evening event to thank major donors and showcase this year's impact numbers.",
+            Date = DateTime.Today.AddDays(14),
             Time = new TimeSpan(18, 0, 0),
             Location = "Cape Town Convention Centre",
-            Coordinator = "Aisha Patel"
+            Coordinator = "Aisha Patel",
+            EstimatedBudget = 85000,
+            EstimatedCapacity = 220,
+            StaffMembers = new() { "Aisha Patel", "Grace Adeyemi", "Naledi Dube" },
+            RequiredResources = new() { "Stage & PA system", "Catering (220 covers)", "Photographer" }
+        },
+        new EventModel
+        {
+            Title = "Community Workshop",
+            Description = "Half-day skills workshop for local youth, run out of the Alexandra community hall.",
+            Date = DateTime.Today.AddDays(21),
+            Time = new TimeSpan(9, 30, 0),
+            Location = "Alexandra Community Hall",
+            Coordinator = "Sipho Mokoena",
+            EstimatedBudget = 12000,
+            EstimatedCapacity = 60,
+            StaffMembers = new() { "Sipho Mokoena", "Liam Fourie" },
+            RequiredResources = new() { "Projector", "Folding chairs (60)", "Printed handouts" }
         }
     };
 
-    private void AddEvent()
+    // --- Selection / mode state ---
+    // selectedEvent: the roster item currently being viewed (read-only).
+    // editingEvent: a *working copy* used by the shared form, whether
+    // creating a new event or editing an existing one - keeping it
+    // separate from selectedEvent means Cancel can discard changes
+    // without touching the real data.
+    private EventModel? selectedEvent;
+    private EventModel? editingEvent;
+    private bool isCreating = false;
+    private bool isEditing = false;
+
+    private string newResourceInput = string.Empty;
+
+    private bool CanSave =>
+        editingEvent is not null &&
+        !string.IsNullOrWhiteSpace(editingEvent.Title) &&
+        editingEvent.Date.HasValue;
+
+    // "+ New" button - opens a blank form and deselects whatever was
+    // being viewed.
+    private void StartCreate()
     {
-        if (!string.IsNullOrWhiteSpace(newEvent.Title) && newEvent.Date.HasValue)
+        editingEvent = new EventModel();
+        isCreating = true;
+        isEditing = false;
+        selectedEvent = null;
+        newResourceInput = string.Empty;
+    }
+
+    // Clicking a roster item shows it read-only. Any in-progress
+    // create/edit is discarded, same as navigating away from a form.
+    private void SelectEvent(EventModel evt)
+    {
+        selectedEvent = evt;
+        isCreating = false;
+        isEditing = false;
+        editingEvent = null;
+        newResourceInput = string.Empty;
+    }
+
+    // "Edit" button on the detail view - clones the selected event into
+    // editingEvent so the form has something to bind to without
+    // mutating the roster's copy until Save.
+    private void StartEdit()
+    {
+        if (selectedEvent is null) return;
+        editingEvent = selectedEvent.Clone();
+        isEditing = true;
+        isCreating = false;
+        newResourceInput = string.Empty;
+    }
+
+    private void CancelForm()
+    {
+        isCreating = false;
+        isEditing = false;
+        editingEvent = null;
+        newResourceInput = string.Empty;
+    }
+
+    private void SaveEvent()
+    {
+        if (!CanSave || editingEvent is null) return;
+
+        if (isCreating)
         {
-            plannedEvents.Add(new EventModel
-            {
-                Title = newEvent.Title,
-                Date = newEvent.Date,
-                Time = newEvent.Time,
-                Location = newEvent.Location,
-                Coordinator = newEvent.Coordinator
-            });
-            
-            // Reset form
-            newEvent = new EventModel();
+            plannedEvents.Add(editingEvent);
+            selectedEvent = editingEvent;
+            NotifyAssignedStaff(editingEvent, editingEvent.StaffMembers);
         }
+        else if (isEditing && selectedEvent is not null)
+        {
+            // Diff staff lists before CopyFrom overwrites the original,
+            // so only newly-added people (not everyone already on the
+            // event) get a notification.
+            var newlyAdded = editingEvent.StaffMembers
+                .Except(selectedEvent.StaffMembers)
+                .ToList();
+            selectedEvent.CopyFrom(editingEvent);
+            NotifyAssignedStaff(selectedEvent, newlyAdded);
+        }
+
+        isCreating = false;
+        isEditing = false;
+        editingEvent = null;
+        newResourceInput = string.Empty;
+    }
+
+    // Adds/removes an employee from the working copy's staff list -
+    // driven by each checkbox's ValueChanged in the form above.
+    private void ToggleStaff(string employee, bool isChecked)
+    {
+        if (editingEvent is null) return;
+
+        if (isChecked)
+        {
+            if (!editingEvent.StaffMembers.Contains(employee))
+                editingEvent.StaffMembers.Add(employee);
+        }
+        else
+        {
+            editingEvent.StaffMembers.Remove(employee);
+        }
+    }
+
+    // Required-resources list: free-text entries rather than a fixed
+    // dropdown, since resource needs vary a lot per event.
+    private void AddResource()
+    {
+        if (editingEvent is null) return;
+
+        var value = newResourceInput?.Trim();
+        if (string.IsNullOrWhiteSpace(value)) return;
+        if (editingEvent.RequiredResources.Contains(value, StringComparer.OrdinalIgnoreCase)) return;
+
+        editingEvent.RequiredResources.Add(value);
+        newResourceInput = string.Empty;
+    }
+
+    private void RemoveResource(string resource) => editingEvent?.RequiredResources.Remove(resource);
+
+    // Fires one "you've been assigned" notification per staff member
+    // passed in. In this prototype notifications aren't scoped to a
+    // specific signed-in recipient, so this fires for the whole given
+    // list (either the full staff list on create, or just the newly
+    // added names on edit - see the callers above).
+    private void NotifyAssignedStaff(EventModel evt, IEnumerable<string> staff)
+    {
+        var dateLabel = evt.Date.HasValue ? evt.Date.Value.ToString("dd MMM") : "TBD";
+        foreach (var name in staff)
+        {
+            NotificationService.Add(
+                NotificationType.EventAssignment,
+                $"Assigned to {evt.Title}",
+                $"{name} was added to the staff list for \"{evt.Title}\" on {dateLabel}.",
+                evt.Title);
+        }
+    }
+
+    // Lets Enter submit a resource the same way clicking "Add" does,
+    // without needing a wrapping <form> element.
+    private void OnResourceKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") AddResource();
     }
 
     private class EventModel
     {
         public string Title { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
         public DateTime? Date { get; set; } = DateTime.Today;
         public TimeSpan? Time { get; set; } = new TimeSpan(9, 0, 0);
         public string Location { get; set; } = string.Empty;
         public string Coordinator { get; set; } = string.Empty;
+        public decimal? EstimatedBudget { get; set; }
+        public int? EstimatedCapacity { get; set; }
+        public List<string> StaffMembers { get; set; } = new();
+        public List<string> RequiredResources { get; set; } = new();
+
+        // Deep-enough copy for the edit form's working copy - the two
+        // list properties need their own new List<> so editing the
+        // clone (e.g. adding a resource) can never leak back into the
+        // original until CopyFrom is explicitly called on Save.
+        public EventModel Clone() => new EventModel
+        {
+            Title = Title,
+            Description = Description,
+            Date = Date,
+            Time = Time,
+            Location = Location,
+            Coordinator = Coordinator,
+            EstimatedBudget = EstimatedBudget,
+            EstimatedCapacity = EstimatedCapacity,
+            StaffMembers = new List<string>(StaffMembers),
+            RequiredResources = new List<string>(RequiredResources)
+        };
+
+        // Used on Save when editing - copies every field from the
+        // working copy back onto this (the roster's real) instance.
+        public void CopyFrom(EventModel other)
+        {
+            Title = other.Title;
+            Description = other.Description;
+            Date = other.Date;
+            Time = other.Time;
+            Location = other.Location;
+            Coordinator = other.Coordinator;
+            EstimatedBudget = other.EstimatedBudget;
+            EstimatedCapacity = other.EstimatedCapacity;
+            StaffMembers = new List<string>(other.StaffMembers);
+            RequiredResources = new List<string>(other.RequiredResources);
+        }
     }
 }

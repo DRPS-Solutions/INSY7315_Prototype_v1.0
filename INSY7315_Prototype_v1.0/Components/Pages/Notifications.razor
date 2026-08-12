@@ -1,0 +1,352 @@
+@page "/notifications"
+@rendermode InteractiveServer
+@using MudBlazor
+@implements IDisposable
+@inject NotificationService NotificationService
+@inject NavigationManager Navigation
+
+<PageTitle>Notifications</PageTitle>
+
+@* =====================================================================
+   STYLE BLOCK
+   Same DRPS palette-as-CSS-variables approach as Requests.razor /
+   Events.razor / Tasks.razor, scoped under .drps-notifications so it
+   doesn't leak into MudBlazor's global theme.
+   ===================================================================== *@
+<style>
+    .drps-notifications {
+        --drps-navy-900: #0B1626;
+        --drps-navy-800: #14243B;
+        --drps-blue-600: #1F3F7A;
+        --drps-blue-500: #2A5CD1;
+        --drps-blue-400: #4A7FE8;
+        --drps-bg: #F4F6FA;
+        --drps-surface: #FFFFFF;
+        --drps-text-muted: #6B7A90;
+        --drps-tint-blue: #EEF2FC;
+        --drps-tint-amber: #FBF2E6;
+        --drps-tint-green: #EAF7EF;
+        --drps-border-soft: #ECEFF4;
+        --drps-empty: #C7CEDA;
+        --drps-shadow: rgba(11, 22, 38, 0.06);
+        background: var(--drps-bg);
+        min-height: 100%;
+        padding-bottom: 2rem;
+    }
+
+    .drps-notifications-header {
+        background: linear-gradient(135deg, var(--drps-navy-900) 0%, var(--drps-blue-600) 100%);
+        border-radius: 16px;
+        padding: 20px 24px;
+        color: white;
+        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+
+    .drps-notifications-header .drps-subtitle {
+        color: rgba(255, 255, 255, 0.75);
+        font-size: 0.85rem;
+        margin-top: 4px;
+    }
+
+    .drps-card {
+        background: var(--drps-surface);
+        border-radius: 16px;
+        padding: 20px 24px;
+        box-shadow: 0 2px 10px var(--drps-shadow);
+    }
+
+    /* --- Type/read filter chips --- */
+    .drps-filter-row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 16px;
+    }
+
+    .drps-filter-chip {
+        padding: 6px 14px;
+        border-radius: 999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: var(--drps-text-muted);
+        background: var(--drps-bg);
+        border: 1px solid var(--drps-border-soft);
+        transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .drps-filter-chip:hover {
+        background: var(--drps-tint-blue);
+    }
+
+    .drps-filter-chip.active {
+        background: var(--drps-blue-500);
+        border-color: var(--drps-blue-500);
+        color: white;
+    }
+
+    /* --- Individual notification row --- */
+    .drps-notif-item {
+        display: flex;
+        gap: 14px;
+        align-items: flex-start;
+        border: 1px solid var(--drps-border-soft);
+        border-radius: 12px;
+        padding: 14px 16px;
+        margin-bottom: 10px;
+        cursor: pointer;
+        transition: background 0.15s ease;
+    }
+
+    .drps-notif-item:last-child {
+        margin-bottom: 0;
+    }
+
+    .drps-notif-item:hover {
+        background: var(--drps-tint-blue);
+    }
+
+    .drps-notif-item.unread {
+        background: var(--drps-tint-blue);
+        border-color: var(--drps-blue-400);
+    }
+
+    .drps-notif-icon {
+        flex-shrink: 0;
+        width: 38px;
+        height: 38px;
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .drps-notif-icon.resource-request {
+        background: var(--drps-tint-amber);
+        color: #D98C1F;
+    }
+
+    .drps-notif-icon.event-assignment {
+        background: var(--drps-tint-green);
+        color: #2E9E5B;
+    }
+
+    .drps-notif-body {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .drps-notif-top {
+        display: flex;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 10px;
+    }
+
+    .drps-notif-title {
+        font-weight: 600;
+        color: var(--drps-navy-800);
+        font-size: 0.92rem;
+    }
+
+    .drps-notif-message {
+        margin-top: 2px;
+        font-size: 0.84rem;
+        color: var(--drps-text-muted);
+    }
+
+    .drps-notif-meta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 8px;
+        font-size: 0.74rem;
+        color: var(--drps-text-muted);
+    }
+
+    .drps-notif-time {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .drps-unread-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--drps-blue-500);
+        flex-shrink: 0;
+        margin-top: 6px;
+    }
+
+    .drps-link-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: var(--drps-tint-blue);
+        color: var(--drps-blue-500);
+        border-radius: 6px;
+        padding: 2px 8px;
+        font-size: 0.72rem;
+        font-weight: 600;
+    }
+
+    .drps-notifications-empty {
+        color: var(--drps-empty);
+        font-size: 0.85rem;
+        text-align: center;
+        padding: 40px 0;
+    }
+
+    /* --- Dark mode overrides --- */
+    .page.dark-mode .drps-notifications {
+        --drps-bg: #0F1B2E;
+        --drps-surface: #16233A;
+        --drps-text-muted: #8CA0BF;
+        --drps-navy-800: #E8ECF5;
+        --drps-tint-blue: rgba(74, 127, 232, 0.16);
+        --drps-tint-amber: rgba(217, 140, 31, 0.18);
+        --drps-tint-green: rgba(46, 158, 91, 0.16);
+        --drps-border-soft: #22314C;
+        --drps-empty: #4C5C79;
+        --drps-shadow: rgba(0, 0, 0, 0.35);
+    }
+</style>
+
+@* =====================================================================
+   MARKUP
+   ===================================================================== *@
+<div class="drps-notifications">
+    <MudContainer MaxWidth="MaxWidth.Medium" Class="pt-6">
+
+        <div class="drps-notifications-header">
+            <div>
+                <MudText Typo="Typo.h6" Style="font-weight:600;">Notifications</MudText>
+                <div class="drps-subtitle">
+                    Resource request updates and event assignments.
+                    @(NotificationService.UnreadCount > 0 ? $"{NotificationService.UnreadCount} unread." : "You're all caught up.")
+                </div>
+            </div>
+            <div class="d-flex" style="gap:8px;">
+                <MudButton Size="Size.Small"
+                           Variant="Variant.Outlined"
+                           Style="color:white;border-color:rgba(255,255,255,0.4);"
+                           Disabled="@(NotificationService.UnreadCount == 0)"
+                           OnClick="@(() => NotificationService.MarkAllAsRead())">
+                    Mark all as read
+                </MudButton>
+                <MudButton Size="Size.Small"
+                           Variant="Variant.Text"
+                           Style="color:rgba(255,255,255,0.75);"
+                           Disabled="@(NotificationService.Notifications.Count == 0)"
+                           OnClick="@(() => NotificationService.ClearAll())">
+                    Clear all
+                </MudButton>
+            </div>
+        </div>
+
+        <div class="drps-card">
+            <div class="drps-filter-row">
+                <div class="drps-filter-chip @(activeFilter is null ? "active" : "")" @onclick="@(() => activeFilter = null)">
+                    All (@NotificationService.Notifications.Count)
+                </div>
+                <div class="drps-filter-chip @(activeFilter == NotificationType.ResourceRequest ? "active" : "")" @onclick="@(() => activeFilter = NotificationType.ResourceRequest)">
+                    Resource Requests (@NotificationService.Notifications.Count(n => n.Type == NotificationType.ResourceRequest))
+                </div>
+                <div class="drps-filter-chip @(activeFilter == NotificationType.EventAssignment ? "active" : "")" @onclick="@(() => activeFilter = NotificationType.EventAssignment)">
+                    Event Assignments (@NotificationService.Notifications.Count(n => n.Type == NotificationType.EventAssignment))
+                </div>
+                <div class="drps-filter-chip @(unreadOnly ? "active" : "")" @onclick="@(() => unreadOnly = !unreadOnly)">
+                    Unread only
+                </div>
+            </div>
+
+            @if (!FilteredNotifications.Any())
+            {
+                <div class="drps-notifications-empty">
+                    @(NotificationService.Notifications.Count == 0 ? "No notifications yet." : "Nothing matches this filter.")
+                </div>
+            }
+            else
+            {
+                @foreach (var n in FilteredNotifications)
+                {
+                    <div class="drps-notif-item @(n.IsRead ? "" : "unread")" @onclick="@(() => OpenNotification(n))">
+                        <div class="drps-notif-icon @(n.Type == NotificationType.ResourceRequest ? "resource-request" : "event-assignment")">
+                            <MudIcon Icon="@(n.Type == NotificationType.ResourceRequest ? Icons.Material.Filled.Inventory2 : Icons.Material.Filled.EventAvailable)" Size="Size.Small" />
+                        </div>
+                        <div class="drps-notif-body">
+                            <div class="drps-notif-top">
+                                <div class="drps-notif-title">@n.Title</div>
+                                <div class="drps-notif-time">@RelativeTime(n.Timestamp)</div>
+                            </div>
+                            <div class="drps-notif-message">@n.Message</div>
+                            <div class="drps-notif-meta">
+                                @if (!string.IsNullOrWhiteSpace(n.LinkedName))
+                                {
+                                    <span class="drps-link-chip">@n.LinkedName</span>
+                                }
+                                <span>@(n.Type == NotificationType.ResourceRequest ? "Resource Request" : "Event Assignment")</span>
+                            </div>
+                        </div>
+                        @if (!n.IsRead)
+                        {
+                            <div class="drps-unread-dot" title="Unread"></div>
+                        }
+                    </div>
+                }
+            }
+        </div>
+
+    </MudContainer>
+</div>
+
+@* =====================================================================
+   CODE-BEHIND
+   ===================================================================== *@
+@code {
+    private NotificationType? activeFilter = null;
+    private bool unreadOnly = false;
+
+    private IEnumerable<NotificationItem> FilteredNotifications =>
+        NotificationService.Notifications
+            .Where(n => activeFilter is null || n.Type == activeFilter)
+            .Where(n => !unreadOnly || !n.IsRead);
+
+    // Clicking a notification marks it read and, since this is a
+    // prototype without per-item deep links, sends the user to the
+    // page that owns that kind of data (Requests or Events) so they
+    // can see the thing the notification was about.
+    private void OpenNotification(NotificationItem n)
+    {
+        NotificationService.MarkAsRead(n);
+        Navigation.NavigateTo(n.Type == NotificationType.ResourceRequest ? "requests" : "events");
+    }
+
+    private static string RelativeTime(DateTime timestamp)
+    {
+        var span = DateTime.Now - timestamp;
+        if (span.TotalMinutes < 1) return "Just now";
+        if (span.TotalMinutes < 60) return $"{(int)span.TotalMinutes}m ago";
+        if (span.TotalHours < 24) return $"{(int)span.TotalHours}h ago";
+        if (span.TotalDays < 7) return $"{(int)span.TotalDays}d ago";
+        return timestamp.ToString("dd MMM");
+    }
+
+    // Re-render if a notification is added/changed elsewhere (e.g. the
+    // user submits a resource request on another tab of this circuit)
+    // while this page is open.
+    protected override void OnInitialized()
+    {
+        NotificationService.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        NotificationService.OnChange -= StateHasChanged;
+    }
+}

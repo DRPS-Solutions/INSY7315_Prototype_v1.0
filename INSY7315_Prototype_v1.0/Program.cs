@@ -14,6 +14,7 @@ namespace INSY7315_Prototype_v1._0
                 .AddInteractiveServerComponents();
 
             builder.Services.AddMudServices();
+            builder.Services.AddScoped<NotificationService>();
 
             var app = builder.Build();
 
