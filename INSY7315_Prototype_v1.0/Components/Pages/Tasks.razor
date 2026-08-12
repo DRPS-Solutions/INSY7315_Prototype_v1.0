@@ -398,12 +398,11 @@
    MARKUP
    Structure, top to bottom:
      1. Header banner (week nav + day-of-week strip)
-     2. Selected date heading + completion summary
+     2. Selected date heading + completion summary + "New Task" button
      3. Timeline card (hour rows with tasks, plus the "now" line)
-   This page is READ-ONLY by design: there is no input field, "add"
-   button, or delete action. Tasks are created on the Project/Event
-   setup page; this page only displays what's already scheduled and
-   lets the user tick tasks off as done.
+   Tasks can be created here via the "New Task" button, which opens
+   CreateTaskDialog. The new task is added directly to the selected
+   day's timeline (or its "All day" bar).
    ===================================================================== *@
 <div class="drps-schedule">
     <MudContainer MaxWidth="MaxWidth.Large" Class="pt-6">
@@ -441,10 +440,22 @@
             </div>
         </div>
 
-        @* --- Selected date heading, e.g. "Tuesday, 29 April" --- *@
-        <MudText Typo="Typo.h6" Class="mb-1" Style="color:var(--drps-navy-800); font-weight:600;">
-            @selectedDate.ToString("dddd, d MMMM")
-        </MudText>
+        @* --- Selected date heading + "New Task" button --- *@
+        <div class="d-flex align-center justify-space-between mb-1">
+            <MudText Typo="Typo.h6" Style="color:var(--drps-navy-800); font-weight:600;">
+                @selectedDate.ToString("dddd, d MMMM")
+            </MudText>
+
+            @* Opens CreateTaskDialog; the new task is added to the
+               selected day by default (see OnCreateTask below). *@
+            <MudButton Variant="Variant.Filled"
+                       Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       Size="Size.Small"
+                       OnClick="OnCreateTask">
+                New Task
+            </MudButton>
+        </div>
 
         @* --- Completion summary for the selected day --- *@
         <MudText Typo="Typo.body2" Class="mb-3" Style="color:#6B7A90;">
@@ -645,6 +656,36 @@
         {
             task.IsDone = false;
             task.CompletedBy = null;
+        }
+    }
+
+    // --- Task creation, via IDialogService/MudDialogProvider ---
+    // Fired by the "New Task" button next to the date heading. Opens
+    // CreateTaskDialog to collect the new task's details; if the user
+    // confirms, maps the dialog's NewTaskResult onto a TaskItem and adds
+    // it to the task list. Cancelling adds nothing.
+    private async Task OnCreateTask()
+    {
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<CreateTaskDialog>("New task", options);
+        var result = await dialog.Result;
+
+        if (result is not null && !result.Canceled && result.Data is NewTaskResult newTask)
+        {
+            tasks.Add(new TaskItem
+            {
+                Title = newTask.Title,
+                ScheduledStart = newTask.ScheduledStart,
+                IsAllDay = newTask.IsAllDay,
+                Category = newTask.Category,
+                Priority = Enum.TryParse<Priority>(newTask.Priority, out var parsedPriority) ? parsedPriority : Priority.Low
+            });
+
+            // Jump the view to the day the new task was scheduled on,
+            // so the user immediately sees it land in the timeline.
+            selectedDate = newTask.ScheduledStart.Date;
+            weekStart = StartOfWeek(newTask.ScheduledStart.Date);
         }
     }
 

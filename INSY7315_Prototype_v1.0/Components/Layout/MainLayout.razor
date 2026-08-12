@@ -77,7 +77,16 @@ else
 
         <main>
             <article class="content px-4">
-                @Body
+                @* Cascaded (by name, so it doesn't collide with any other
+                   string parameters a page might declare) so individual
+                   pages - e.g. Requests.razor gating its Approve/Deny
+                   buttons to Admins - can read who's logged in without
+                   MainLayout having to know about every page's needs. *@
+                <CascadingValue Value="currentRole" Name="CurrentRole" IsFixed="false">
+                    <CascadingValue Value="currentUserName" Name="CurrentUserName" IsFixed="false">
+                        @Body
+                    </CascadingValue>
+                </CascadingValue>
             </article>
         </main>
     </div>
@@ -140,9 +149,12 @@ else
     };
 
     // Single source of truth for tab visibility, computed here from
-    // currentRole and passed to NavMenu as plain booleans - Home and
-    // Daily Tasks have no check since every role sees them.
-    // - Basic Staff: Home, Daily Tasks only
+    // currentRole and passed to NavMenu as plain booleans - Home, Daily
+    // Tasks, and Resource Requests have no check since every role sees
+    // them. (Requests is visible to everyone so any role can submit
+    // one; only Admins get Approve/Deny controls once inside the page -
+    // that's gated separately, off the cascaded CurrentRole, not here.)
+    // - Basic Staff: Home, Daily Tasks, Resource Requests only
     // - Secondary Staff: Basic Staff's tabs, plus User Management
     // - Management Staff: everything except User Management
     // - Admin: everything
