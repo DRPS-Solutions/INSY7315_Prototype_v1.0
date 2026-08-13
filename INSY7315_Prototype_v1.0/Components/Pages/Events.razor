@@ -2,7 +2,9 @@
 @rendermode InteractiveServer
 @using MudBlazor
 @using Microsoft.AspNetCore.Components.Web
+@implements IDisposable
 @inject NotificationService NotificationService
+@inject AppDataService AppData
 
 <PageTitle>Event Planning</PageTitle>
 
@@ -286,14 +288,14 @@
                         </MudButton>
                     </div>
 
-                    @if (!plannedEvents.Any())
+                    @if (!AppData.Events.Any())
                     {
                         <div class="drps-event-empty">No events scheduled yet.</div>
                     }
                     else
                     {
                         <div class="drps-roster">
-                            @foreach (var evt in plannedEvents.OrderBy(e => e.Date))
+                            @foreach (var evt in AppData.Events.OrderBy(e => e.Date))
                             {
                                 var cssClass = "drps-roster-item" + (selectedEvent == evt && !isCreating ? " selected" : "");
                                 <div class="@cssClass" @onclick="() => SelectEvent(evt)">
@@ -336,7 +338,7 @@
                         </div>
 
                         <MudSelect T="string" Label="Lead Coordinator" Variant="Variant.Outlined" @bind-Value="editingEvent!.Coordinator" Class="mb-3">
-                            @foreach (var emp in employees)
+                            @foreach (var emp in AppData.EmployeeNames)
                             {
                                 <MudSelectItem T="string" Value="@emp">@emp</MudSelectItem>
                             }
@@ -349,7 +351,7 @@
 
                         <div class="drps-section-label">Staff Helping</div>
                         <div class="drps-staff-grid mb-3">
-                            @foreach (var emp in employees)
+                            @foreach (var emp in AppData.EmployeeNames)
                             {
                                 <MudCheckBox T="bool"
                                              Value="@editingEvent!.StaffMembers.Contains(emp)"
@@ -462,6 +464,36 @@
                         {
                             <div class="drps-tag-empty">No resources listed yet.</div>
                         }
+
+                        <div class="drps-section-label">Linked Tasks (@AppData.TasksForEvent(evt.Id).Count())</div>
+                        var linkedTasks = AppData.TasksForEvent(evt.Id).OrderBy(t => t.ScheduledStart).ToList(); 
+                        @if (linkedTasks.Any())
+                        {
+                            <div class="drps-roster">
+                                @foreach (var linkedTask in linkedTasks)
+                                {
+                                    <div class="drps-roster-item">
+                                        <div class="drps-roster-title">
+                                            @linkedTask.Title
+                                            @if (linkedTask.IsCompleted)
+                                            {
+                                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Color="Color.Success" Style="vertical-align:middle; margin-left:4px;" />
+                                            }
+                                        </div>
+                                        <div class="drps-roster-meta">
+                                            <MudIcon Icon="@Icons.Material.Filled.Person" Size="Size.Small" />
+                                            @(string.IsNullOrWhiteSpace(linkedTask.Assignee) ? "Unassigned" : linkedTask.Assignee)
+                                            &nbsp;·&nbsp;
+                                            @linkedTask.ScheduledStart.ToString("dd MMM, h:mm tt")
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="drps-tag-empty">No tasks linked to this event yet.</div>
+                        }
                     }
                     else
                     {
@@ -479,56 +511,16 @@
 </div>
 
 @code {
-    // Roster of established employees, reused both for the "Lead
-    // Coordinator" dropdown and the "Staff Helping" checkbox list.
-    private List<string> employees = new()
-    {
-        "Naledi Dube",
-        "Sipho Mokoena",
-        "Aisha Patel",
-        "Liam Fourie",
-        "Grace Adeyemi"
-    };
-
-    // Placeholder list of existing events.
-    private List<EventModel> plannedEvents = new()
-    {
-        new EventModel
-        {
-            Title = "Annual Donor Gala",
-            Description = "Formal evening event to thank major donors and showcase this year's impact numbers.",
-            Date = DateTime.Today.AddDays(14),
-            Time = new TimeSpan(18, 0, 0),
-            Location = "Cape Town Convention Centre",
-            Coordinator = "Aisha Patel",
-            EstimatedBudget = 85000,
-            EstimatedCapacity = 220,
-            StaffMembers = new() { "Aisha Patel", "Grace Adeyemi", "Naledi Dube" },
-            RequiredResources = new() { "Stage & PA system", "Catering (220 covers)", "Photographer" }
-        },
-        new EventModel
-        {
-            Title = "Community Workshop",
-            Description = "Half-day skills workshop for local youth, run out of the Alexandra community hall.",
-            Date = DateTime.Today.AddDays(21),
-            Time = new TimeSpan(9, 30, 0),
-            Location = "Alexandra Community Hall",
-            Coordinator = "Sipho Mokoena",
-            EstimatedBudget = 12000,
-            EstimatedCapacity = 60,
-            StaffMembers = new() { "Sipho Mokoena", "Liam Fourie" },
-            RequiredResources = new() { "Projector", "Folding chairs (60)", "Printed handouts" }
-        }
-    };
-
     // --- Selection / mode state ---
-    // selectedEvent: the roster item currently being viewed (read-only).
+    // selectedEvent: the roster item currently being viewed (read-only) -
+    // now the actual AppEvent instance held by AppDataService, so
+    // Linked Tasks (via AppData.TasksForEvent) always reflects live data.
     // editingEvent: a *working copy* used by the shared form, whether
     // creating a new event or editing an existing one - keeping it
     // separate from selectedEvent means Cancel can discard changes
     // without touching the real data.
-    private EventModel? selectedEvent;
-    private EventModel? editingEvent;
+    private AppEvent? selectedEvent;
+    private AppEvent? editingEvent;
     private bool isCreating = false;
     private bool isEditing = false;
 
@@ -543,7 +535,7 @@
     // being viewed.
     private void StartCreate()
     {
-        editingEvent = new EventModel();
+        editingEvent = new AppEvent();
         isCreating = true;
         isEditing = false;
         selectedEvent = null;
@@ -552,7 +544,7 @@
 
     // Clicking a roster item shows it read-only. Any in-progress
     // create/edit is discarded, same as navigating away from a form.
-    private void SelectEvent(EventModel evt)
+    private void SelectEvent(AppEvent evt)
     {
         selectedEvent = evt;
         isCreating = false;
@@ -587,7 +579,7 @@
 
         if (isCreating)
         {
-            plannedEvents.Add(editingEvent);
+            AppData.AddEvent(editingEvent);
             selectedEvent = editingEvent;
             NotifyAssignedStaff(editingEvent, editingEvent.StaffMembers);
         }
@@ -600,6 +592,7 @@
                 .Except(selectedEvent.StaffMembers)
                 .ToList();
             selectedEvent.CopyFrom(editingEvent);
+            AppData.NotifyEventChanged();
             NotifyAssignedStaff(selectedEvent, newlyAdded);
         }
 
@@ -647,7 +640,7 @@
     // specific signed-in recipient, so this fires for the whole given
     // list (either the full staff list on create, or just the newly
     // added names on edit - see the callers above).
-    private void NotifyAssignedStaff(EventModel evt, IEnumerable<string> staff)
+    private void NotifyAssignedStaff(AppEvent evt, IEnumerable<string> staff)
     {
         var dateLabel = evt.Date.HasValue ? evt.Date.Value.ToString("dd MMM") : "TBD";
         foreach (var name in staff)
@@ -667,51 +660,16 @@
         if (e.Key == "Enter") AddResource();
     }
 
-    private class EventModel
+    // Re-render if events/tasks change elsewhere (e.g. a new Event-linked
+    // task created from the Tasks/Home "New Task" dialog) while this
+    // page is open, so the roster and Linked Tasks list never go stale.
+    protected override void OnInitialized()
     {
-        public string Title { get; set; } = string.Empty;
-        public string Description { get; set; } = string.Empty;
-        public DateTime? Date { get; set; } = DateTime.Today;
-        public TimeSpan? Time { get; set; } = new TimeSpan(9, 0, 0);
-        public string Location { get; set; } = string.Empty;
-        public string Coordinator { get; set; } = string.Empty;
-        public decimal? EstimatedBudget { get; set; }
-        public int? EstimatedCapacity { get; set; }
-        public List<string> StaffMembers { get; set; } = new();
-        public List<string> RequiredResources { get; set; } = new();
+        AppData.OnChange += StateHasChanged;
+    }
 
-        // Deep-enough copy for the edit form's working copy - the two
-        // list properties need their own new List<> so editing the
-        // clone (e.g. adding a resource) can never leak back into the
-        // original until CopyFrom is explicitly called on Save.
-        public EventModel Clone() => new EventModel
-        {
-            Title = Title,
-            Description = Description,
-            Date = Date,
-            Time = Time,
-            Location = Location,
-            Coordinator = Coordinator,
-            EstimatedBudget = EstimatedBudget,
-            EstimatedCapacity = EstimatedCapacity,
-            StaffMembers = new List<string>(StaffMembers),
-            RequiredResources = new List<string>(RequiredResources)
-        };
-
-        // Used on Save when editing - copies every field from the
-        // working copy back onto this (the roster's real) instance.
-        public void CopyFrom(EventModel other)
-        {
-            Title = other.Title;
-            Description = other.Description;
-            Date = other.Date;
-            Time = other.Time;
-            Location = other.Location;
-            Coordinator = other.Coordinator;
-            EstimatedBudget = other.EstimatedBudget;
-            EstimatedCapacity = other.EstimatedCapacity;
-            StaffMembers = new List<string>(other.StaffMembers);
-            RequiredResources = new List<string>(other.RequiredResources);
-        }
+    public void Dispose()
+    {
+        AppData.OnChange -= StateHasChanged;
     }
 }

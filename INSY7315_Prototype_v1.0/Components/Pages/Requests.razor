@@ -1,8 +1,10 @@
 @page "/requests"
 @rendermode InteractiveServer
 @using MudBlazor
+@implements IDisposable
 @inject IDialogService DialogService
 @inject NotificationService NotificationService
+@inject AppDataService AppData
 
 <PageTitle>Resource Requests</PageTitle>
 
@@ -268,19 +270,19 @@
 
                     @if (newRequest.LinkType == "Event")
                     {
-                        <MudSelect T="string" Label="Which event?" Variant="Variant.Outlined" @bind-Value="newRequest.LinkedName" Class="mb-3">
-                            @foreach (var evt in eventOptions)
+                        <MudSelect T="Guid?" Label="Which event?" Variant="Variant.Outlined" @bind-Value="newRequest.LinkedId" Class="mb-3">
+                            @foreach (var evt in AppData.Events)
                             {
-                                <MudSelectItem T="string" Value="@evt">@evt</MudSelectItem>
+                                <MudSelectItem T="Guid?" Value="@((Guid?)evt.Id)">@evt.Title</MudSelectItem>
                             }
                         </MudSelect>
                     }
                     else if (newRequest.LinkType == "Task")
                     {
-                        <MudSelect T="string" Label="Which task?" Variant="Variant.Outlined" @bind-Value="newRequest.LinkedName" Class="mb-3">
-                            @foreach (var task in taskOptions)
+                        <MudSelect T="Guid?" Label="Which task?" Variant="Variant.Outlined" @bind-Value="newRequest.LinkedId" Class="mb-3">
+                            @foreach (var task in AppData.Tasks)
                             {
-                                <MudSelectItem T="string" Value="@task">@task</MudSelectItem>
+                                <MudSelectItem T="Guid?" Value="@((Guid?)task.Id)">@task.Title</MudSelectItem>
                             }
                         </MudSelect>
                     }
@@ -304,12 +306,12 @@
                     @* Status filter - "All" plus one chip per RequestStatus value. *@
                     <div class="drps-filter-row">
                         <div class="drps-filter-chip @(activeFilter is null ? "active" : "")" @onclick="() => activeFilter = null">
-                            All (@requests.Count)
+                            All (@AppData.Requests.Count)
                         </div>
                         @foreach (var status in Enum.GetValues<RequestStatus>())
                         {
                             <div class="drps-filter-chip @(activeFilter == status ? "active" : "")" @onclick="() => activeFilter = status">
-                                @status (@requests.Count(r => r.Status == status))
+                                @status (@AppData.Requests.Count(r => r.Status == status))
                             </div>
                         }
                     </div>
@@ -335,11 +337,11 @@
                                     <div class="drps-status-chip @req.Status.ToString().ToLower()">@req.Status</div>
                                 </div>
 
-                                @if (req.LinkType != "None" && !string.IsNullOrWhiteSpace(req.LinkedName))
+                                @if (req.LinkType != RequestLinkType.None && !string.IsNullOrWhiteSpace(req.LinkedName))
                                 {
                                     <div class="mt-2">
                                         <span class="drps-link-chip">
-                                            <MudIcon Icon="@(req.LinkType == "Event" ? Icons.Material.Filled.CalendarToday : Icons.Material.Filled.Task)" Size="Size.Small" />
+                                            <MudIcon Icon="@(req.LinkType == RequestLinkType.Event ? Icons.Material.Filled.CalendarToday : Icons.Material.Filled.Task)" Size="Size.Small" />
                                             @req.LinkType: @req.LinkedName
                                         </span>
                                     </div>
@@ -400,30 +402,12 @@
     // see full request history and who reviewed each one.
     private bool IsAdmin => CurrentRole == "Admin";
 
-    // Placeholder options for the "Link to" dropdowns - in the real app
-    // these would come from wherever Events.razor / Tasks.razor persist
-    // their data, rather than being duplicated here.
-    private List<string> eventOptions = new()
-    {
-        "Annual Donor Gala",
-        "Community Workshop",
-        "Board Meeting"
-    };
-
-    private List<string> taskOptions = new()
-    {
-        "Site visit — Alexandra shelter",
-        "Grant proposal review",
-        "Community workshop setup",
-        "Inventory count"
-    };
-
     // --- Submission form state ---
     private RequestFormModel newRequest = new();
 
     private bool CanSubmit =>
         !string.IsNullOrWhiteSpace(newRequest.Title) &&
-        (newRequest.LinkType == "None" || !string.IsNullOrWhiteSpace(newRequest.LinkedName));
+        (newRequest.LinkType == "None" || newRequest.LinkedId.HasValue);
 
     private void SubmitRequest()
     {
@@ -432,14 +416,36 @@
         var requestedBy = string.IsNullOrWhiteSpace(CurrentUserName) ? "You" : CurrentUserName!;
         var title = newRequest.Title.Trim();
 
-        requests.Add(new ResourceRequest
+        // Resolve the real link (Id + display name) from AppData's shared
+        // Events/Tasks collections, rather than trusting a free-typed name -
+        // this is what makes the request a real reference, not just a
+        // string match.
+        var linkType = newRequest.LinkType switch
+        {
+            "Event" => RequestLinkType.Event,
+            "Task" => RequestLinkType.Task,
+            _ => RequestLinkType.None
+        };
+
+        string? linkedName = null;
+        if (linkType == RequestLinkType.Event && newRequest.LinkedId.HasValue)
+        {
+            linkedName = AppData.Events.FirstOrDefault(e => e.Id == newRequest.LinkedId.Value)?.Title;
+        }
+        else if (linkType == RequestLinkType.Task && newRequest.LinkedId.HasValue)
+        {
+            linkedName = AppData.Tasks.FirstOrDefault(t => t.Id == newRequest.LinkedId.Value)?.Title;
+        }
+
+        AppData.AddRequest(new ResourceRequestItem
         {
             Title = title,
             ResourceType = newRequest.ResourceType,
             Amount = newRequest.Amount,
             Notes = newRequest.Notes,
-            LinkType = newRequest.LinkType,
-            LinkedName = newRequest.LinkType == "None" ? null : newRequest.LinkedName,
+            LinkType = linkType,
+            LinkedId = linkType == RequestLinkType.None ? null : newRequest.LinkedId,
+            LinkedName = linkType == RequestLinkType.None ? null : linkedName,
             RequestedBy = requestedBy,
             RequestedDate = DateTime.Now,
             Status = RequestStatus.Pending
@@ -451,8 +457,8 @@
         NotificationService.Add(
             NotificationType.ResourceRequest,
             "New resource request",
-            $"{requestedBy} requested \"{title}\"" + (newRequest.LinkType != "None" && !string.IsNullOrWhiteSpace(newRequest.LinkedName) ? $" for {newRequest.LinkedName}." : "."),
-            newRequest.LinkType == "None" ? null : newRequest.LinkedName);
+            $"{requestedBy} requested \"{title}\"" + (linkType != RequestLinkType.None && !string.IsNullOrWhiteSpace(linkedName) ? $" for {linkedName}." : "."),
+            linkType == RequestLinkType.None ? null : linkedName);
 
         // Reset the form, but keep the last-used resource type since
         // people often submit a few similar requests in a row.
@@ -463,27 +469,26 @@
     // --- Status filter above the list. Null means "All". ---
     private RequestStatus? activeFilter = null;
 
-    private IEnumerable<ResourceRequest> FilteredRequests =>
-        activeFilter is null ? requests : requests.Where(r => r.Status == activeFilter);
+    private IEnumerable<ResourceRequestItem> FilteredRequests =>
+        activeFilter is null ? AppData.Requests : AppData.Requests.Where(r => r.Status == activeFilter);
 
     // --- Admin review actions ---
     // Approve needs no extra input, so it applies immediately.
-    private void ApproveRequest(ResourceRequest req)
+    private void ApproveRequest(ResourceRequestItem req)
     {
-        req.Status = RequestStatus.Approved;
-        req.ReviewedBy = string.IsNullOrWhiteSpace(CurrentUserName) ? "Admin" : CurrentUserName!;
-        req.ReviewedDate = DateTime.Now;
+        var reviewedBy = string.IsNullOrWhiteSpace(CurrentUserName) ? "Admin" : CurrentUserName!;
+        AppData.ApproveRequest(req, reviewedBy);
 
         NotificationService.Add(
             NotificationType.ResourceRequest,
             "Request approved",
-            $"{req.ReviewedBy} approved your \"{req.Title}\" request.",
+            $"{reviewedBy} approved your \"{req.Title}\" request.",
             req.LinkedName);
     }
 
     // Deny opens DenyRequestDialog so the admin can optionally leave a
     // reason. Cancelling the dialog leaves the request Pending.
-    private async Task DenyRequest(ResourceRequest req)
+    private async Task DenyRequest(ResourceRequestItem req)
     {
         var parameters = new DialogParameters<DenyRequestDialog>
         {
@@ -496,16 +501,15 @@
 
         if (result is not null && !result.Canceled)
         {
-            req.Status = RequestStatus.Denied;
-            req.ReviewedBy = string.IsNullOrWhiteSpace(CurrentUserName) ? "Admin" : CurrentUserName!;
-            req.ReviewedDate = DateTime.Now;
-            req.DenyReason = result.Data as string;
+            var reviewedBy = string.IsNullOrWhiteSpace(CurrentUserName) ? "Admin" : CurrentUserName!;
+            var reason = result.Data as string;
+            AppData.DenyRequest(req, reviewedBy, reason);
 
-            var reasonSuffix = string.IsNullOrWhiteSpace(req.DenyReason) ? "" : $" Reason: {req.DenyReason}";
+            var reasonSuffix = string.IsNullOrWhiteSpace(reason) ? "" : $" Reason: {reason}";
             NotificationService.Add(
                 NotificationType.ResourceRequest,
                 "Request denied",
-                $"{req.ReviewedBy} denied your \"{req.Title}\" request.{reasonSuffix}",
+                $"{reviewedBy} denied your \"{req.Title}\" request.{reasonSuffix}",
                 req.LinkedName);
         }
     }
@@ -520,96 +524,12 @@
         _ => Icons.Material.Filled.Inventory2
     };
 
-    // Placeholder seed data, mixing all three statuses so the filter
-    // chips and Admin-only controls are visible without needing to
-    // submit anything first.
-    private List<ResourceRequest> requests = new()
-    {
-        new ResourceRequest
-        {
-            Title = "Projector for donor gala",
-            ResourceType = "Equipment",
-            Amount = "1 projector",
-            Notes = "Needed for the sponsor highlight reel.",
-            LinkType = "Event",
-            LinkedName = "Annual Donor Gala",
-            RequestedBy = "Aisha Patel",
-            RequestedDate = DateTime.Now.AddDays(-2),
-            Status = RequestStatus.Pending
-        },
-        new ResourceRequest
-        {
-            Title = "Additional volunteers",
-            ResourceType = "Personnel",
-            Amount = "4 volunteers",
-            Notes = "Site visit needs extra hands for the day.",
-            LinkType = "Task",
-            LinkedName = "Site visit — Alexandra shelter",
-            RequestedBy = "Sipho Mokoena",
-            RequestedDate = DateTime.Now.AddDays(-1),
-            Status = RequestStatus.Pending
-        },
-        new ResourceRequest
-        {
-            Title = "Printing budget",
-            ResourceType = "Budget",
-            Amount = "R 1,200",
-            Notes = "Workshop handouts and signage.",
-            LinkType = "Event",
-            LinkedName = "Community Workshop",
-            RequestedBy = "Grace Adeyemi",
-            RequestedDate = DateTime.Now.AddDays(-5),
-            Status = RequestStatus.Approved,
-            ReviewedBy = "Naledi Dube",
-            ReviewedDate = DateTime.Now.AddDays(-4)
-        },
-        new ResourceRequest
-        {
-            Title = "New laptop",
-            ResourceType = "Equipment",
-            Amount = "1 laptop",
-            Notes = "Current one won't hold a charge.",
-            LinkType = "None",
-            RequestedBy = "Liam Fourie",
-            RequestedDate = DateTime.Now.AddDays(-7),
-            Status = RequestStatus.Denied,
-            ReviewedBy = "Naledi Dube",
-            ReviewedDate = DateTime.Now.AddDays(-6),
-            DenyReason = "Budget's earmarked for Q3 - resubmit then."
-        },
-    };
-
-    // Urgency-free lifecycle for a request: created Pending, then an
-    // Admin moves it to Approved or Denied. There's no "back to
-    // Pending" - a wrong call gets resubmitted as a new request.
-    private enum RequestStatus
-    {
-        Pending,
-        Approved,
-        Denied
-    }
-
-    // Persisted model for a submitted request.
-    private class ResourceRequest
-    {
-        public string Title { get; set; } = string.Empty;
-        public string ResourceType { get; set; } = string.Empty;
-        public string? Amount { get; set; }
-        public string? Notes { get; set; }
-        // "None" | "Event" | "Task"
-        public string LinkType { get; set; } = "None";
-        public string? LinkedName { get; set; }
-        public string RequestedBy { get; set; } = string.Empty;
-        public DateTime RequestedDate { get; set; }
-        public RequestStatus Status { get; set; } = RequestStatus.Pending;
-        public string? ReviewedBy { get; set; }
-        public DateTime? ReviewedDate { get; set; }
-        public string? DenyReason { get; set; }
-    }
-
     // Lightweight model bound to the submission form on the left -
-    // kept separate from ResourceRequest so a half-filled form never
-    // pollutes the actual request list until Submit is clicked.
+    // kept separate from ResourceRequestItem so a half-filled form never
+    // pollutes AppData.Requests until Submit is clicked. LinkType stays a
+    // string ("None"/"Event"/"Task") to drive which dropdown renders;
+    // LinkedId is the real Guid reference resolved from AppData's shared
+    // Events/Tasks collections.
     private class RequestFormModel
     {
         public string Title { get; set; } = string.Empty;
@@ -617,6 +537,19 @@
         public string? Amount { get; set; }
         public string? Notes { get; set; }
         public string LinkType { get; set; } = "None";
-        public string? LinkedName { get; set; }
+        public Guid? LinkedId { get; set; }
+    }
+
+    // Re-render if requests/events/tasks change elsewhere while this page
+    // is open (e.g. a new Event added from Events.razor, so it shows up
+    // in the "Which event?" dropdown immediately).
+    protected override void OnInitialized()
+    {
+        AppData.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        AppData.OnChange -= StateHasChanged;
     }
 }

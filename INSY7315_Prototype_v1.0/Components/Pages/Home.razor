@@ -1,7 +1,9 @@
 ﻿@page "/"
 @rendermode InteractiveServer
 @using MudBlazor
+@implements IDisposable
 @inject IDialogService DialogService
+@inject AppDataService AppData
 
 <PageTitle>Today's Tasks</PageTitle>
 
@@ -124,6 +126,18 @@
         padding: 24px 0;
     }
 
+    .drps-event-tag {
+        display: inline-block;
+        margin-left: 8px;
+        padding: 1px 8px;
+        border-radius: 999px;
+        background: var(--drps-tint-green);
+        color: var(--drps-blue-500);
+        font-size: 0.68rem;
+        font-weight: 600;
+        vertical-align: middle;
+    }
+
     /* --- Dark mode overrides --- */
     .page.dark-mode .drps-home {
         --drps-bg: #0B1B21;
@@ -157,37 +171,60 @@
         <MudGrid>
             <MudItem xs="12" md="8">
                 <div class="drps-card">
-                    <MudText Typo="Typo.h6" Class="mb-4">Today's Active Tasks</MudText>
+                    <div class="d-flex align-center justify-space-between mb-4">
+                        <MudText Typo="Typo.h6">Today's Active Tasks</MudText>
+                        <MudButton Variant="Variant.Text"
+                                   Color="Color.Primary"
+                                   Size="Size.Small"
+                                   EndIcon="@Icons.Material.Filled.ArrowForward"
+                                   Href="tasks">
+                            Open Daily Tasks
+                        </MudButton>
+                    </div>
 
-                    @foreach (var task in todayTasks)
+                    @if (!todayTasks.Any())
                     {
-                        <div class="task-item @(task.IsCompleted ? "completed" : "")">
-                            <MudGrid AlignItems="Center">
-                                <MudItem xs="12" sm="1">
-                                    <MudCheckBox T="bool"
-                                                 Value="task.IsCompleted"
-                                                 ValueChanged="@(async (bool @checked) => await OnToggleTask(task, @checked))"
-                                                 Color="Color.Success" />
-                                </MudItem>
+                        <div class="drps-summary-empty">Nothing scheduled for today.</div>
+                    }
+                    else
+                    {
+                        @foreach (var task in todayTasks.OrderBy(t => t.ScheduledStart))
+                        {
+                            <div class="task-item @(task.IsCompleted ? "completed" : "")">
+                                <MudGrid AlignItems="Center">
+                                    <MudItem xs="12" sm="1">
+                                        <MudCheckBox T="bool"
+                                                     Value="task.IsCompleted"
+                                                     ValueChanged="@(async (bool @checked) => await OnToggleTask(task, @checked))"
+                                                     Color="Color.Success" />
+                                    </MudItem>
 
-                                <MudItem xs="12" sm="7">
-                                    <MudText Typo="Typo.body1" Style="@(task.IsCompleted ? "text-decoration: line-through; color: #888;" : "font-weight: 500;")">
-                                        @task.Title
-                                    </MudText>
-                                    <MudText Typo="Typo.caption" Color="Color.Secondary">@task.Category</MudText>
-                                </MudItem>
-
-                                <MudItem xs="12" sm="4">
-                                    @if (task.IsCompleted && !string.IsNullOrEmpty(task.CompletedBy))
-                                    {
-                                        <MudText Typo="Typo.caption" Color="Color.Success" Style="font-weight:500;">
-                                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" />
-                                            Completed by @task.CompletedBy
+                                    <MudItem xs="12" sm="7">
+                                        <MudText Typo="Typo.body1" Style="@(task.IsCompleted ? "text-decoration: line-through; color: #888;" : "font-weight: 500;")">
+                                            @task.Title
+                                            @if (task.Type == AppTaskType.Event && !string.IsNullOrWhiteSpace(task.LinkedEventTitle))
+                                            {
+                                                <span class="drps-event-tag">@task.LinkedEventTitle</span>
+                                            }
                                         </MudText>
-                                    }
-                                </MudItem>
-                            </MudGrid>
-                        </div>
+                                        <MudText Typo="Typo.caption" Color="Color.Secondary">
+                                            @(task.IsAllDay ? "All day" : task.ScheduledStart.ToString("h:mm tt")) &middot; @task.Category
+                                            @(string.IsNullOrWhiteSpace(task.Assignee) ? "" : $" \u00b7 {task.Assignee}")
+                                        </MudText>
+                                    </MudItem>
+
+                                    <MudItem xs="12" sm="4">
+                                        @if (task.IsCompleted && !string.IsNullOrEmpty(task.CompletedBy))
+                                        {
+                                            <MudText Typo="Typo.caption" Color="Color.Success" Style="font-weight:500;">
+                                                <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" Class="mr-1" />
+                                                Completed by @task.CompletedBy
+                                            </MudText>
+                                        }
+                                    </MudItem>
+                                </MudGrid>
+                            </div>
+                        }
                     }
                 </div>
             </MudItem>
@@ -223,43 +260,32 @@
 </div>
 
 @code {
-    private List<string> staffMembers = new()
-    {
-        "Naledi Dube",
-        "Sipho Mokoena",
-        "Aisha Patel",
-        "Liam Fourie",
-        "Grace Adeyemi"
-    };
+    // Home is deliberately just a filtered view over the exact same
+    // AppTask collection Tasks.razor (Daily Tasks) reads and writes -
+    // that's what makes the two pages "linked": ticking a task's box
+    // here calls AppData.CompleteTask, which raises AppData.OnChange,
+    // which is what makes the Daily Tasks page's own todayTasks/tasks
+    // views immediately reflect the change (and vice versa).
+    private List<string> staffMembers => AppData.EmployeeNames;
 
-    private List<DailyTask> todayTasks = new()
-    {
-        new DailyTask { Title = "Review Morning Dispatch Logs", Category = "Operations", IsCompleted = false },
-        new DailyTask { Title = "Submit Weekly Safety Checklist", Category = "Compliance", IsCompleted = false },
-        new DailyTask { Title = "Confirm Driver Schedules", Category = "Logistics", IsCompleted = false },
-        new DailyTask { Title = "Client Status Update Call", Category = "Management", IsCompleted = false }
-    };
-
-    private class DailyTask
-    {
-        public string Title { get; set; } = string.Empty;
-        public string Category { get; set; } = string.Empty;
-        public bool IsCompleted { get; set; }
-        public string? CompletedBy { get; set; }
-    }
+    // Today's tasks only - both Daily tasks and Event-linked tasks
+    // scheduled for today, which is what makes this "Today's Active
+    // Tasks" rather than the full multi-day schedule Tasks.razor shows.
+    private List<AppTask> todayTasks => AppData.TodayTasks.ToList();
 
     // Number of today's tasks marked complete - drives the header chip.
     private int completedCount => todayTasks.Count(t => t.IsCompleted);
 
     // Completed tasks (with an attributed staff member) for the
     // admin-facing "Completed Today" panel.
-    private IEnumerable<DailyTask> CompletedTasks =>
-        todayTasks.Where(t => t.IsCompleted && !string.IsNullOrEmpty(t.CompletedBy));
+    private IEnumerable<AppTask> CompletedTasks =>
+        todayTasks.Where(t => t.IsCompleted && !string.IsNullOrEmpty(t.CompletedBy))
+                  .OrderByDescending(t => t.CompletedAt);
 
     // Checking a task's box opens CompletedByDialog so the completion
     // is attributed to a staff member, mirroring the Daily Tasks page.
     // Unchecking clears completion immediately, no attribution needed.
-    private async Task OnToggleTask(DailyTask task, bool isChecked)
+    private async Task OnToggleTask(AppTask task, bool isChecked)
     {
         if (isChecked)
         {
@@ -275,14 +301,12 @@
 
             if (result is not null && !result.Canceled && result.Data is string employee && !string.IsNullOrEmpty(employee))
             {
-                task.IsCompleted = true;
-                task.CompletedBy = employee;
+                AppData.CompleteTask(task, employee);
             }
         }
         else
         {
-            task.IsCompleted = false;
-            task.CompletedBy = null;
+            AppData.ReopenTask(task);
         }
     }
 
@@ -293,5 +317,18 @@
         return string.Concat(name.Split(' ', StringSplitOptions.RemoveEmptyEntries)
                                   .Select(part => part[0]))
                       .ToUpper();
+    }
+
+    // Re-render if a task is completed/added elsewhere (e.g. from the
+    // Daily Tasks page) while Home is open, so the two pages never
+    // show stale, out-of-sync state.
+    protected override void OnInitialized()
+    {
+        AppData.OnChange += StateHasChanged;
+    }
+
+    public void Dispose()
+    {
+        AppData.OnChange -= StateHasChanged;
     }
 }

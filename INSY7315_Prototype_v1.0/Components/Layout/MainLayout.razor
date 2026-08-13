@@ -1,5 +1,6 @@
 ﻿@inherits LayoutComponentBase
 @using MudBlazor
+@inject AppDataService AppData
 
 <MudThemeProvider IsDarkMode="isDarkMode" Theme="_theme" />
 <MudPopoverProvider />
@@ -22,39 +23,55 @@
                 <MudText Typo="Typo.h5" Class="drps-login-title">QULOOBUL MOE'MIENEEN</MudText>
                 <MudText Typo="Typo.body2" Class="drps-login-subtitle">Sign in to continue</MudText>
 
-                <MudTextField @bind-Value="loginName"
-                              Label="Full name"
+                <MudTextField @bind-Value="usernameInput"
+                              Label="Username or email"
                               Variant="Variant.Outlined"
                               Margin="Margin.Dense"
+                              Immediate="true"
+                              @onkeydown="OnLoginKeyDown"
                               Class="mt-4 mb-3" />
 
-                <MudSelect T="string" @bind-Value="selectedRole"
-                           Label="Role"
-                           Variant="Variant.Outlined"
-                           Margin="Margin.Dense"
-                           Class="mb-2">
-                    <MudSelectItem Value="@("BasicStaff")">Basic Staff</MudSelectItem>
-                    <MudSelectItem Value="@("SecondaryStaff")">Secondary Staff</MudSelectItem>
-                    <MudSelectItem Value="@("ManagementStaff")">Management Staff</MudSelectItem>
-                    <MudSelectItem Value="@("Admin")">Admin</MudSelectItem>
-                </MudSelect>
+                <MudTextField @bind-Value="passwordInput"
+                              Label="Password"
+                              Variant="Variant.Outlined"
+                              Margin="Margin.Dense"
+                              InputType="InputType.Password"
+                              Immediate="true"
+                              @onkeydown="OnLoginKeyDown"
+                              Class="mb-2" />
 
-                <MudText Typo="Typo.caption" Class="drps-login-hint">
-                    @RoleHint(selectedRole)
-                </MudText>
+                @if (loginError is not null)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Error" Class="drps-login-hint">
+                        @loginError
+                    </MudText>
+                }
 
                 <MudButton Variant="Variant.Filled"
                            Color="Color.Primary"
                            FullWidth="true"
                            Class="mt-4"
-                           Disabled="@(string.IsNullOrWhiteSpace(selectedRole))"
+                           Disabled="@(string.IsNullOrWhiteSpace(usernameInput) || string.IsNullOrWhiteSpace(passwordInput))"
                            OnClick="Login">
                     Log In
                 </MudButton>
 
                 <MudText Typo="Typo.caption" Class="drps-login-footnote">
-                    Prototype sign-in - role only, no password yet.
+                    Prototype sign-in - pick a demo account below to try each role.
                 </MudText>
+
+                @* Demo accounts, seeded in AppDataService - clicking one
+                   fills the fields above so graders/reviewers can try
+                   every role without hunting for credentials. *@
+                <div class="drps-demo-accounts">
+                    @foreach (var demoUser in AppData.Users)
+                    {
+                        <button type="button" class="drps-demo-account-chip" @onclick="() => FillDemoAccount(demoUser)">
+                            <span class="drps-demo-account-name">@demoUser.FullName</span>
+                            <span class="drps-demo-account-role">@demoUser.SystemRoleLabel</span>
+                        </button>
+                    }
+                </div>
             </div>
         </div>
     </div>
@@ -84,7 +101,9 @@ else
                    MainLayout having to know about every page's needs. *@
                 <CascadingValue Value="currentRole" Name="CurrentRole" IsFixed="false">
                     <CascadingValue Value="currentUserName" Name="CurrentUserName" IsFixed="false">
-                        @Body
+                        <CascadingValue Value="currentUserId" Name="CurrentUserId" IsFixed="false">
+                            @Body
+                        </CascadingValue>
                     </CascadingValue>
                 </CascadingValue>
             </article>
@@ -107,46 +126,68 @@ else
     private bool isVerticalNav = false;
 
     // null = not logged in, which renders the login screen instead of
-    // NavMenu + @Body below. A plain string keeps this prototype simple
-    // rather than adding a separate enum type to keep in sync across
-    // files - valid values are "BasicStaff", "SecondaryStaff",
-    // "ManagementStaff", "Admin". Living here (not a routable /login
-    // page) means it persists across navigation the same way dark
-    // mode/nav orientation already do.
+    // NavMenu + @Body below. Living here (not a routable /login page)
+    // means it persists across navigation the same way dark mode/nav
+    // orientation already do. currentRole is derived from whichever
+    // AppUser signed in (see Login below), matching one of the
+    // SystemRole enum's ToString() values so the existing
+    // CanSeeMeetings/CanSeeUserManagement/CanSeeEvents checks (and the
+    // "CurrentRole" cascade other pages read) keep working unchanged.
     private string? currentRole = null;
     private string currentUserName = string.Empty;
+    private Guid? currentUserId = null;
 
-    private string loginName = string.Empty;
-    private string? selectedRole = null;
+    private string usernameInput = string.Empty;
+    private string passwordInput = string.Empty;
+    private string? loginError = null;
 
     private void ToggleDarkMode() => isDarkMode = !isDarkMode;
 
     private void ToggleNavOrientation() => isVerticalNav = !isVerticalNav;
 
+    // Validates the entered credentials against AppData.Users (seeded
+    // in AppDataService) instead of just picking a role from a
+    // dropdown - a real username/password check, even though the
+    // "database" behind it is just an in-memory list.
     private void Login()
     {
-        if (string.IsNullOrWhiteSpace(selectedRole)) return;
+        var user = AppData.Login(usernameInput, passwordInput);
+        if (user is null)
+        {
+            loginError = "That username/email or password doesn't match a known account.";
+            return;
+        }
 
-        currentRole = selectedRole;
-        currentUserName = string.IsNullOrWhiteSpace(loginName) ? RoleLabel(selectedRole) : loginName;
+        loginError = null;
+        currentRole = user.SystemRole.ToString();
+        currentUserName = user.FullName;
+        currentUserId = user.Id;
+    }
+
+    // Demo-account chips fill the form but still require clicking
+    // "Log In" - keeps the real credential check as the only way in,
+    // while making it fast to try each role.
+    private void FillDemoAccount(AppUser user)
+    {
+        usernameInput = user.Username;
+        passwordInput = user.Password;
+        loginError = null;
+    }
+
+    private void OnLoginKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") Login();
     }
 
     private void Logout()
     {
         currentRole = null;
         currentUserName = string.Empty;
-        loginName = string.Empty;
-        selectedRole = null;
+        currentUserId = null;
+        usernameInput = string.Empty;
+        passwordInput = string.Empty;
+        loginError = null;
     }
-
-    private static string RoleLabel(string role) => role switch
-    {
-        "BasicStaff" => "Basic Staff",
-        "SecondaryStaff" => "Secondary Staff",
-        "ManagementStaff" => "Management Staff",
-        "Admin" => "Admin",
-        _ => role
-    };
 
     // Single source of truth for tab visibility, computed here from
     // currentRole and passed to NavMenu as plain booleans - Home, Daily
@@ -161,15 +202,6 @@ else
     private bool CanSeeMeetings => currentRole is "ManagementStaff" or "Admin";
     private bool CanSeeUserManagement => currentRole is "SecondaryStaff" or "Admin";
     private bool CanSeeEvents => currentRole is "ManagementStaff" or "Admin";
-
-    private static string RoleHint(string? role) => role switch
-    {
-        "BasicStaff" => "Sees Home and Daily Tasks.",
-        "SecondaryStaff" => "Sees Home, Daily Tasks, and User Management.",
-        "ManagementStaff" => "Sees everything except User Management.",
-        "Admin" => "Sees every tab.",
-        _ => "Pick a role to see which tabs it can access."
-    };
 
     // Drives MudThemeProvider so built-in MudBlazor components (buttons,
     // dialogs, tables, inputs, snackbars) switch palette automatically

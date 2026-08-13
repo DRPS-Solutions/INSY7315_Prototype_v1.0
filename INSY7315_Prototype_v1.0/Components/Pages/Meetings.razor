@@ -2,6 +2,7 @@
 @rendermode InteractiveServer
 @using MudBlazor
 @implements IDisposable
+@inject AppDataService AppData
 
 <PageTitle>Meeting Minutes</PageTitle>
 
@@ -227,13 +228,13 @@
             @* --- MAIN MEETINGS LIST VIEW --- *@
             <div class="drps-meeting-header">
                 <MudText Typo="Typo.h6" Style="font-weight:600;">Meeting Minutes &amp; Recordings</MudText>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="() => showCreateScreen = true">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add" OnClick="StartNewMeeting">
                     New / Active Meeting
                 </MudButton>
             </div>
 
             <div class="drps-card">
-                <MudTable Items="scheduledMeetings" Hover="true" Striped="false" Elevation="0">
+                <MudTable Items="AppData.Meetings" Hover="true" Striped="false" Elevation="0">
                     <HeaderContent>
                         <MudTh>Topic / Title</MudTh>
                         <MudTh>Date</MudTh>
@@ -256,7 +257,7 @@
                 <div class="d-flex align-center gap-3">
                     <MudIconButton Icon="@Icons.Material.Filled.ArrowBack" Color="Color.Surface" OnClick="BackToList" />
                     <MudTextField T="string"
-                                  @bind-Value="meetingTitle"
+                                  @bind-Value="activeMeeting!.Title"
                                   Placeholder="Untitled meeting"
                                   Variant="Variant.Outlined"
                                   Class="drps-meeting-title-field"
@@ -307,7 +308,7 @@
                             Meeting Minutes
                         </div>
                         <MudTextField T="string"
-                                      @bind-Value="minutesText"
+                                      @bind-Value="activeMeeting!.MinutesText"
                                       Placeholder="Type meeting minutes here as the discussion happens..."
                                       Variant="Variant.Outlined"
                                       Lines="16"
@@ -341,13 +342,13 @@
                         </div>
 
                         <div class="drps-note-list">
-                            @if (!notes.Any())
+                            @if (!activeMeeting!.Notes.Any())
                             {
                                 <div class="drps-note-empty">Nothing captured yet</div>
                             }
                             else
                             {
-                                @foreach (var note in notes)
+                                @foreach (var note in activeMeeting!.Notes)
                                 {
                                     <div class="drps-note-item @(note.IsActionItem ? "action" : "")">
                                         <div>
@@ -356,7 +357,7 @@
                                         </div>
                                         <MudIconButton Icon="@Icons.Material.Filled.Close"
                                                        Size="Size.Small"
-                                                       OnClick="() => notes.Remove(note)" />
+                                                       OnClick="() => activeMeeting!.Notes.Remove(note)" />
                                     </div>
                                 }
                             }
@@ -397,7 +398,7 @@
 
                 @if (transcriptReady)
                 {
-                    <div class="drps-transcript-box">@transcriptText</div>
+                    <div class="drps-transcript-box">@activeMeeting!.Transcript</div>
                 }
             </div>
         }
@@ -406,17 +407,21 @@
 </div>
 
 @code {
+    // Cascaded (by name) from MainLayout - used to attribute a new
+    // meeting to whoever is actually signed in, instead of the
+    // hard-coded "Naledi Dube" this page used before.
+    [CascadingParameter(Name = "CurrentUserName")]
+    private string? CurrentUserName { get; set; }
+
     private bool showCreateScreen = false;
 
-    private List<MeetingSummary> scheduledMeetings = new()
-    {
-        new MeetingSummary { Title = "Donor Operations Review", Date = DateTime.Today.AddDays(-1), Duration = "45 mins", Organizer = "Aisha Patel" },
-        new MeetingSummary { Title = "Fieldwork Logistics & Planning", Date = DateTime.Today, Duration = "30 mins", Organizer = "Sipho Mokoena" },
-        new MeetingSummary { Title = "Q3 Board Strategy Session", Date = DateTime.Today.AddDays(2), Duration = "60 mins", Organizer = "Naledi Dube" }
-    };
-
-    private string meetingTitle = string.Empty;
-    private string minutesText = string.Empty;
+    // The Meeting object being built while the create/active screen is
+    // open. Title/minutes/notes bind directly onto it, and
+    // GenerateTranscript writes straight into its Transcript property,
+    // so nothing here is page-local scratch state that could be lost -
+    // AppData.AddMeeting just adds this same instance once "Finish
+    // Meeting" is clicked.
+    private Meeting? activeMeeting;
 
     private bool isRecording = false;
     private bool hasRecorded = false;
@@ -450,13 +455,12 @@
 
     private string noteInput = string.Empty;
     private bool addingActionItem = false;
-    private List<NoteItem> notes = new();
 
     private void AddNote()
     {
-        if (string.IsNullOrWhiteSpace(noteInput)) return;
+        if (string.IsNullOrWhiteSpace(noteInput) || activeMeeting is null) return;
 
-        notes.Add(new NoteItem
+        activeMeeting.Notes.Add(new MeetingNote
         {
             Text = noteInput.Trim(),
             IsActionItem = addingActionItem,
@@ -475,17 +479,22 @@
 
     private bool isGeneratingTranscript = false;
     private bool transcriptReady = false;
-    private string transcriptText = string.Empty;
 
     private async Task GenerateTranscript()
     {
+        if (activeMeeting is null) return;
+
         isGeneratingTranscript = true;
         StateHasChanged();
 
         await Task.Delay(1400);
 
-        var title = string.IsNullOrWhiteSpace(meetingTitle) ? "Untitled meeting" : meetingTitle;
-        transcriptText =
+        var title = string.IsNullOrWhiteSpace(activeMeeting.Title) ? "Untitled meeting" : activeMeeting.Title;
+
+        // Written straight onto the Meeting object being edited (rather
+        // than a page-local string) so it persists in AppData.Meetings
+        // once "Finish Meeting" is clicked instead of being lost.
+        activeMeeting.Transcript =
             $"Transcript for \"{title}\" ({FormattedElapsed} recorded)\n\n" +
             "[Speaker 1] Placeholder line of dialogue reconstructed from the recorded audio.\n" +
             "[Speaker 2] Placeholder response continuing the discussion.\n" +
@@ -497,22 +506,36 @@
         isGeneratingTranscript = false;
     }
 
+    // "New / Active Meeting" button - opens a blank working Meeting and
+    // switches to the create/active screen.
+    private void StartNewMeeting()
+    {
+        activeMeeting = new Meeting();
+        showCreateScreen = true;
+        ResetSessionState();
+    }
+
     private void CreateMeeting()
     {
+        if (activeMeeting is null) return;
+
         if (isRecording)
         {
             StopRecording();
         }
 
-        scheduledMeetings.Insert(0, new MeetingSummary
+        activeMeeting.Date = DateTime.Today;
+        activeMeeting.Duration = FormattedElapsed;
+        activeMeeting.Organizer = string.IsNullOrWhiteSpace(CurrentUserName) ? "Unknown" : CurrentUserName!;
+        if (string.IsNullOrWhiteSpace(activeMeeting.Title))
         {
-            Title = string.IsNullOrWhiteSpace(meetingTitle) ? "Untitled meeting" : meetingTitle,
-            Date = DateTime.Today,
-            Duration = FormattedElapsed,
-            Organizer = "Naledi Dube"
-        });
+            activeMeeting.Title = "Untitled meeting";
+        }
 
-        ResetMeetingState();
+        AppData.AddMeeting(activeMeeting);
+
+        activeMeeting = null;
+        ResetSessionState();
         showCreateScreen = false;
     }
 
@@ -524,43 +547,35 @@
             StopRecording();
         }
 
-        ResetMeetingState();
+        activeMeeting = null;
+        ResetSessionState();
         showCreateScreen = false;
     }
 
-    private void ResetMeetingState()
+    // Resets only the recording/transcript session state - the meeting's
+    // own data (title, minutes, notes, transcript) lives on activeMeeting
+    // itself and is reset simply by replacing it with a new Meeting().
+    private void ResetSessionState()
     {
-        meetingTitle = string.Empty;
-        minutesText = string.Empty;
         noteInput = string.Empty;
         addingActionItem = false;
-        notes.Clear();
 
         hasRecorded = false;
         elapsedSeconds = 0;
 
         transcriptReady = false;
-        transcriptText = string.Empty;
         isGeneratingTranscript = false;
     }
 
-    private class MeetingSummary
+    // Re-render if meetings change elsewhere while this page is open.
+    protected override void OnInitialized()
     {
-        public string Title { get; set; } = string.Empty;
-        public DateTime Date { get; set; }
-        public string Duration { get; set; } = string.Empty;
-        public string Organizer { get; set; } = string.Empty;
-    }
-
-    private class NoteItem
-    {
-        public string Text { get; set; } = string.Empty;
-        public bool IsActionItem { get; set; } = false;
-        public string Timestamp { get; set; } = string.Empty;
+        AppData.OnChange += StateHasChanged;
     }
 
     public void Dispose()
     {
+        AppData.OnChange -= StateHasChanged;
         recordingTimer?.Stop();
         recordingTimer?.Dispose();
     }
