@@ -14,7 +14,11 @@ namespace INSY7315_Prototype_v1._0
                 .AddInteractiveServerComponents();
 
             builder.Services.AddMudServices();
-            builder.Services.AddScoped<NotificationService>();
+            // Singleton (not Scoped) so notifications can be routed to
+            // whichever user/role they're targeted at, not just the
+            // session that happened to trigger them - see the comment
+            // atop NotificationService.cs.
+            builder.Services.AddSingleton<NotificationService>();
             builder.Services.AddSingleton<AppDataService>();
 
             var app = builder.Build();

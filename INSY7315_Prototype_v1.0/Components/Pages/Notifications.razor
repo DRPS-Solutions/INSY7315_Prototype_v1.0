@@ -142,6 +142,11 @@
         color: #2E9E5B;
     }
 
+    .drps-notif-icon.task-assignment {
+        background: var(--drps-tint-blue);
+        color: var(--drps-blue-500);
+    }
+
     .drps-notif-body {
         flex: 1;
         min-width: 0;
@@ -234,23 +239,23 @@
             <div>
                 <MudText Typo="Typo.h6" Style="font-weight:600;">Notifications</MudText>
                 <div class="drps-subtitle">
-                    Resource request updates and event assignments.
-                    @(NotificationService.UnreadCount > 0 ? $"{NotificationService.UnreadCount} unread." : "You're all caught up.")
+                    Resource request updates, event assignments and task assignments.
+                    @(UnreadCount > 0 ? $"{UnreadCount} unread." : "You're all caught up.")
                 </div>
             </div>
             <div class="d-flex" style="gap:8px;">
                 <MudButton Size="Size.Small"
                            Variant="Variant.Outlined"
                            Style="color:white;border-color:rgba(255,255,255,0.4);"
-                           Disabled="@(NotificationService.UnreadCount == 0)"
-                           OnClick="@(() => NotificationService.MarkAllAsRead())">
+                           Disabled="@(UnreadCount == 0)"
+                           OnClick="MarkAllAsRead">
                     Mark all as read
                 </MudButton>
                 <MudButton Size="Size.Small"
                            Variant="Variant.Text"
                            Style="color:rgba(255,255,255,0.75);"
-                           Disabled="@(NotificationService.Notifications.Count == 0)"
-                           OnClick="@(() => NotificationService.ClearAll())">
+                           Disabled="@(MyNotifications.Count == 0)"
+                           OnClick="ClearAll">
                     Clear all
                 </MudButton>
             </div>
@@ -259,13 +264,16 @@
         <div class="drps-card">
             <div class="drps-filter-row">
                 <div class="drps-filter-chip @(activeFilter is null ? "active" : "")" @onclick="@(() => activeFilter = null)">
-                    All (@NotificationService.Notifications.Count)
+                    All (@MyNotifications.Count)
                 </div>
                 <div class="drps-filter-chip @(activeFilter == NotificationType.ResourceRequest ? "active" : "")" @onclick="@(() => activeFilter = NotificationType.ResourceRequest)">
-                    Resource Requests (@NotificationService.Notifications.Count(n => n.Type == NotificationType.ResourceRequest))
+                    Resource Requests (@MyNotifications.Count(n => n.Type == NotificationType.ResourceRequest))
                 </div>
                 <div class="drps-filter-chip @(activeFilter == NotificationType.EventAssignment ? "active" : "")" @onclick="@(() => activeFilter = NotificationType.EventAssignment)">
-                    Event Assignments (@NotificationService.Notifications.Count(n => n.Type == NotificationType.EventAssignment))
+                    Event Assignments (@MyNotifications.Count(n => n.Type == NotificationType.EventAssignment))
+                </div>
+                <div class="drps-filter-chip @(activeFilter == NotificationType.TaskAssignment ? "active" : "")" @onclick="@(() => activeFilter = NotificationType.TaskAssignment)">
+                    Task Assignments (@MyNotifications.Count(n => n.Type == NotificationType.TaskAssignment))
                 </div>
                 <div class="drps-filter-chip @(unreadOnly ? "active" : "")" @onclick="@(() => unreadOnly = !unreadOnly)">
                     Unread only
@@ -275,16 +283,16 @@
             @if (!FilteredNotifications.Any())
             {
                 <div class="drps-notifications-empty">
-                    @(NotificationService.Notifications.Count == 0 ? "No notifications yet." : "Nothing matches this filter.")
+                    @(MyNotifications.Count == 0 ? "No notifications yet." : "Nothing matches this filter.")
                 </div>
             }
             else
             {
                 @foreach (var n in FilteredNotifications)
                 {
-                    <div class="drps-notif-item @(n.IsRead ? "" : "unread")" @onclick="@(() => OpenNotification(n))">
-                        <div class="drps-notif-icon @(n.Type == NotificationType.ResourceRequest ? "resource-request" : "event-assignment")">
-                            <MudIcon Icon="@(n.Type == NotificationType.ResourceRequest ? Icons.Material.Filled.Inventory2 : Icons.Material.Filled.EventAvailable)" Size="Size.Small" />
+                    <div class="drps-notif-item @(IsRead(n) ? "" : "unread")" @onclick="@(() => OpenNotification(n))">
+                        <div class="drps-notif-icon @(NotifIconClass(n.Type))">
+                            <MudIcon Icon="@(NotifIcon(n.Type))" Size="Size.Small" />
                         </div>
                         <div class="drps-notif-body">
                             <div class="drps-notif-top">
@@ -297,10 +305,10 @@
                                 {
                                     <span class="drps-link-chip">@n.LinkedName</span>
                                 }
-                                <span>@(n.Type == NotificationType.ResourceRequest ? "Resource Request" : "Event Assignment")</span>
+                                <span>@NotifTypeLabel(n.Type)</span>
                             </div>
                         </div>
-                        @if (!n.IsRead)
+                        @if (!IsRead(n))
                         {
                             <div class="drps-unread-dot" title="Unread"></div>
                         }
@@ -316,22 +324,85 @@
    CODE-BEHIND
    ===================================================================== *@
 @code {
+    // Cascaded (by name) from MainLayout - see the CascadingValue
+    // wrapping @Body there. Both are needed to ask NotificationService
+    // for only the notifications this signed-in user should see (their
+    // personal ones, plus any role-wide broadcast for their SystemRole).
+    [CascadingParameter(Name = "CurrentRole")]
+    private string? CurrentRole { get; set; }
+
+    [CascadingParameter(Name = "CurrentUserId")]
+    private Guid? CurrentUserId { get; set; }
+
+    private SystemRole ParsedRole =>
+        Enum.TryParse<SystemRole>(CurrentRole, out var role) ? role : SystemRole.GeneralStaff;
+
+    private List<NotificationItem> MyNotifications =>
+        CurrentUserId.HasValue ? NotificationService.NotificationsFor(CurrentUserId.Value, ParsedRole) : new();
+
+    private int UnreadCount => MyNotifications.Count(n => !IsRead(n));
+
+    private bool IsRead(NotificationItem n) => CurrentUserId.HasValue && n.IsReadBy(CurrentUserId.Value);
+
     private NotificationType? activeFilter = null;
     private bool unreadOnly = false;
 
     private IEnumerable<NotificationItem> FilteredNotifications =>
-        NotificationService.Notifications
+        MyNotifications
             .Where(n => activeFilter is null || n.Type == activeFilter)
-            .Where(n => !unreadOnly || !n.IsRead);
+            .Where(n => !unreadOnly || !IsRead(n));
 
-    // Clicking a notification marks it read and, since this is a
-    // prototype without per-item deep links, sends the user to the
-    // page that owns that kind of data (Requests or Events) so they
-    // can see the thing the notification was about.
+    private static string NotifIconClass(NotificationType type) => type switch
+    {
+        NotificationType.ResourceRequest => "resource-request",
+        NotificationType.EventAssignment => "event-assignment",
+        NotificationType.TaskAssignment => "task-assignment",
+        _ => "resource-request"
+    };
+
+    private static string NotifIcon(NotificationType type) => type switch
+    {
+        NotificationType.ResourceRequest => Icons.Material.Filled.Inventory2,
+        NotificationType.EventAssignment => Icons.Material.Filled.EventAvailable,
+        NotificationType.TaskAssignment => Icons.Material.Filled.CheckCircleOutline,
+        _ => Icons.Material.Filled.Inventory2
+    };
+
+    private static string NotifTypeLabel(NotificationType type) => type switch
+    {
+        NotificationType.ResourceRequest => "Resource Request",
+        NotificationType.EventAssignment => "Event Assignment",
+        NotificationType.TaskAssignment => "Task Assignment",
+        _ => type.ToString()
+    };
+
+    // Clicking a notification marks it read (for this user only - see
+    // NotificationService.MarkAsRead) and, since this is a prototype
+    // without per-item deep links, sends the user to the page that
+    // owns that kind of data so they can see the thing it was about.
     private void OpenNotification(NotificationItem n)
     {
-        NotificationService.MarkAsRead(n);
-        Navigation.NavigateTo(n.Type == NotificationType.ResourceRequest ? "requests" : "events");
+        if (!CurrentUserId.HasValue) return;
+        NotificationService.MarkAsRead(n, CurrentUserId.Value);
+
+        var destination = n.Type switch
+        {
+            NotificationType.ResourceRequest => "requests",
+            NotificationType.EventAssignment => "events",
+            NotificationType.TaskAssignment => "tasks",
+            _ => "requests"
+        };
+        Navigation.NavigateTo(destination);
+    }
+
+    private void MarkAllAsRead()
+    {
+        if (CurrentUserId.HasValue) NotificationService.MarkAllAsRead(CurrentUserId.Value, ParsedRole);
+    }
+
+    private void ClearAll()
+    {
+        if (CurrentUserId.HasValue) NotificationService.ClearAll(CurrentUserId.Value, ParsedRole);
     }
 
     private static string RelativeTime(DateTime timestamp)

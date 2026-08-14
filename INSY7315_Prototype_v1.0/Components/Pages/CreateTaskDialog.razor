@@ -58,7 +58,7 @@
         </MudSelect>
 
         <MudSelect T="string" Label="Assignee" Variant="Variant.Outlined" @bind-Value="assignee" Class="mb-3">
-            @foreach (var employee in AppData.EmployeeNames)
+            @foreach (var employee in AppData.SelectableEmployeeNames)
             {
                 <MudSelectItem T="string" Value="@employee">@employee</MudSelectItem>
             }

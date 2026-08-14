@@ -85,6 +85,24 @@ public class AppDataService
     // shared user list.
     public List<string> EmployeeNames => _users.Select(u => u.FullName).OrderBy(n => n).ToList();
 
+    // Same as EmployeeNames but excludes Admin-tier accounts - Admins
+    // (chairman/secretary/treasurer) aren't line staff, so they should
+    // never show up as a pickable assignee/coordinator/staff member on
+    // the Daily Tasks or Events pages. Every other role stays pickable.
+    public List<string> SelectableEmployeeNames =>
+        _users.Where(u => u.SystemRole != SystemRole.Admin)
+              .Select(u => u.FullName)
+              .OrderBy(n => n)
+              .ToList();
+
+    // Resolves an employee's Id/role by their display name - used when
+    // routing a notification to a specific person (e.g. a task's
+    // assignee, an event's newly-added staff, a request's original
+    // requester) since AppTask/AppEvent/ResourceRequestItem only store
+    // names, not Ids.
+    public AppUser? UserByName(string fullName) =>
+        _users.FirstOrDefault(u => u.FullName == fullName);
+
     // ------------------------------------------------------------------
     // Tasks
     // ------------------------------------------------------------------
@@ -230,7 +248,7 @@ public class AppDataService
                 Username = "sipho.mokoena@drpssolutions.org",
                 Email = "sipho.mokoena@drpssolutions.org",
                 Password = "Sipho123",
-                SystemRole = SystemRole.BasicStaff,
+                SystemRole = SystemRole.GeneralStaff,
                 JobTitle = "Fieldwork Lead",
                 Department = "Programs",
                 JoinDate = new DateTime(2023, 6, 15)
@@ -241,7 +259,7 @@ public class AppDataService
                 Username = "aisha.patel@drpssolutions.org",
                 Email = "aisha.patel@drpssolutions.org",
                 Password = "Aisha123",
-                SystemRole = SystemRole.ManagementStaff,
+                SystemRole = SystemRole.FacilityManager,
                 JobTitle = "Programs Manager",
                 Department = "Programs",
                 JoinDate = new DateTime(2022, 1, 10)
@@ -252,7 +270,7 @@ public class AppDataService
                 Username = "liam.fourie@drpssolutions.org",
                 Email = "liam.fourie@drpssolutions.org",
                 Password = "Liam123",
-                SystemRole = SystemRole.SecondaryStaff,
+                SystemRole = SystemRole.SecondaryAdmin,
                 JobTitle = "IT & Systems Support",
                 Department = "Operations",
                 JoinDate = new DateTime(2024, 9, 2)
@@ -263,7 +281,7 @@ public class AppDataService
                 Username = "grace.adeyemi@drpssolutions.org",
                 Email = "grace.adeyemi@drpssolutions.org",
                 Password = "Grace123",
-                SystemRole = SystemRole.BasicStaff,
+                SystemRole = SystemRole.GeneralStaff,
                 JobTitle = "Communications Officer",
                 Department = "Marketing",
                 JoinDate = new DateTime(2023, 11, 20)

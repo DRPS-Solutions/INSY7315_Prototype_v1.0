@@ -338,7 +338,7 @@
                         </div>
 
                         <MudSelect T="string" Label="Lead Coordinator" Variant="Variant.Outlined" @bind-Value="editingEvent!.Coordinator" Class="mb-3">
-                            @foreach (var emp in AppData.EmployeeNames)
+                            @foreach (var emp in AppData.SelectableEmployeeNames)
                             {
                                 <MudSelectItem T="string" Value="@emp">@emp</MudSelectItem>
                             }
@@ -351,7 +351,7 @@
 
                         <div class="drps-section-label">Staff Helping</div>
                         <div class="drps-staff-grid mb-3">
-                            @foreach (var emp in AppData.EmployeeNames)
+                            @foreach (var emp in AppData.SelectableEmployeeNames)
                             {
                                 <MudCheckBox T="bool"
                                              Value="@editingEvent!.StaffMembers.Contains(emp)"
@@ -582,6 +582,18 @@
             AppData.AddEvent(editingEvent);
             selectedEvent = editingEvent;
             NotifyAssignedStaff(editingEvent, editingEvent.StaffMembers);
+
+            // Role-wide broadcast so Admin/Secondary Admin hear about
+            // every new event regardless of who's staffed on it -
+            // mirrors the "new resource request" broadcast in
+            // Requests.razor.
+            var dateLabel = editingEvent.Date.HasValue ? editingEvent.Date.Value.ToString("dd MMM") : "TBD";
+            NotificationService.Add(
+                NotificationType.EventAssignment,
+                "New event created",
+                $"\"{editingEvent.Title}\" was scheduled for {dateLabel}.",
+                targetRoles: EventNotificationRoles,
+                linkedName: editingEvent.Title);
         }
         else if (isEditing && selectedEvent is not null)
         {
@@ -635,21 +647,36 @@
 
     private void RemoveResource(string resource) => editingEvent?.RequiredResources.Remove(resource);
 
-    // Fires one "you've been assigned" notification per staff member
-    // passed in. In this prototype notifications aren't scoped to a
-    // specific signed-in recipient, so this fires for the whole given
-    // list (either the full staff list on create, or just the newly
-    // added names on edit - see the callers above).
+    // Roles that get the "new event created" role-wide broadcast -
+    // same pair Requests.razor broadcasts resource requests to.
+    private static readonly SystemRole[] EventNotificationRoles = { SystemRole.Admin, SystemRole.SecondaryAdmin };
+
+    // Roles that get a personal "you were added to this event's staff"
+    // notification. General Staff can still be picked as event staff
+    // (SelectableEmployeeNames only excludes Admin-tier), but their own
+    // notifications are daily-task-only, so they're deliberately left
+    // out here.
+    private static readonly SystemRole[] StaffAssignmentNotificationRoles = { SystemRole.SecondaryAdmin, SystemRole.FacilityManager };
+
+    // Fires one personal "you've been assigned" notification per staff
+    // member passed in, but only for staff whose role actually wants
+    // event-assignment notifications (see StaffAssignmentNotificationRoles).
+    // Used for the whole staff list on create, or just the newly added
+    // names on edit - see the callers above.
     private void NotifyAssignedStaff(AppEvent evt, IEnumerable<string> staff)
     {
         var dateLabel = evt.Date.HasValue ? evt.Date.Value.ToString("dd MMM") : "TBD";
         foreach (var name in staff)
         {
+            var user = AppData.UserByName(name);
+            if (user is null || !StaffAssignmentNotificationRoles.Contains(user.SystemRole)) continue;
+
             NotificationService.Add(
                 NotificationType.EventAssignment,
                 $"Assigned to {evt.Title}",
-                $"{name} was added to the staff list for \"{evt.Title}\" on {dateLabel}.",
-                evt.Title);
+                $"You were added to the staff list for \"{evt.Title}\" on {dateLabel}.",
+                targetUserIds: new[] { user.Id },
+                linkedName: evt.Title);
         }
     }
 

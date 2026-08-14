@@ -17,13 +17,29 @@ using System.Collections.Generic;
 using System.Linq;
 
 // Permission level used for page/tab visibility (see MainLayout.razor's
-// CanSeeMeetings/CanSeeUserManagement/CanSeeEvents). Separate from
-// AppUser.JobTitle, which is just a display label (e.g. "Fieldwork Lead").
+// CanSeeTasks/CanSeeRequests/CanSeeMeetings/CanSeeUserManagement/
+// CanSeeEvents) and for notification routing (see NotificationService).
+// Separate from AppUser.JobTitle, which is just a display label (e.g.
+// "Fieldwork Lead"). Declared low-tier to high-tier:
+//   - GeneralStaff: Home page only. Notified only about Daily-type
+//     tasks assigned to them.
+//   - FacilityManager: Home, Daily Tasks, Resource Requests pages.
+//     Can't approve/deny requests, and gets no resource-request
+//     notifications at all. Notified about events/tasks only when
+//     personally linked to them (staffed/assigned).
+//   - SecondaryAdmin: everything Admin has except User Management.
+//     Notified whenever an event or resource request is made
+//     (role-wide), plus any task assigned to them.
+//   - Admin: every page, full create/edit/delete everywhere, and the
+//     only role that can manage users. Not selectable as an event/task
+//     assignee. Notified whenever an event or resource request is made
+//     (role-wide) - no personal task/event-assignment notifications
+//     since Admins aren't assignable.
 public enum SystemRole
 {
-    BasicStaff,
-    SecondaryStaff,
-    ManagementStaff,
+    GeneralStaff,
+    FacilityManager,
+    SecondaryAdmin,
     Admin
 }
 
@@ -74,7 +90,7 @@ public class AppUser
     // with no real auth/security behind it.
     public string Password { get; set; } = string.Empty;
 
-    public SystemRole SystemRole { get; set; } = SystemRole.BasicStaff;
+    public SystemRole SystemRole { get; set; } = SystemRole.GeneralStaff;
     public string JobTitle { get; set; } = string.Empty;
     public string Department { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;
@@ -89,9 +105,9 @@ public class AppUser
 
     public static string RoleLabel(SystemRole role) => role switch
     {
-        SystemRole.BasicStaff => "Basic Staff",
-        SystemRole.SecondaryStaff => "Secondary Staff",
-        SystemRole.ManagementStaff => "Management Staff",
+        SystemRole.GeneralStaff => "General Staff",
+        SystemRole.FacilityManager => "Facility Manager",
+        SystemRole.SecondaryAdmin => "Secondary Admin",
         SystemRole.Admin => "Admin",
         _ => role.ToString()
     };

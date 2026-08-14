@@ -86,6 +86,9 @@ else
                      OnToggleNavOrientation="ToggleNavOrientation"
                      CurrentRole="currentRole"
                      CurrentUserName="currentUserName"
+                     CurrentUserId="currentUserId"
+                     CanSeeTasks="CanSeeTasks"
+                     CanSeeRequests="CanSeeRequests"
                      CanSeeMeetings="CanSeeMeetings"
                      CanSeeUserManagement="CanSeeUserManagement"
                      CanSeeEvents="CanSeeEvents"
@@ -190,18 +193,21 @@ else
     }
 
     // Single source of truth for tab visibility, computed here from
-    // currentRole and passed to NavMenu as plain booleans - Home, Daily
-    // Tasks, and Resource Requests have no check since every role sees
-    // them. (Requests is visible to everyone so any role can submit
-    // one; only Admins get Approve/Deny controls once inside the page -
-    // that's gated separately, off the cascaded CurrentRole, not here.)
-    // - Basic Staff: Home, Daily Tasks, Resource Requests only
-    // - Secondary Staff: Basic Staff's tabs, plus User Management
-    // - Management Staff: everything except User Management
+    // currentRole and passed to NavMenu as plain booleans. Home is
+    // always visible to every signed-in role, so it has no check here.
+    // (Requests is visible to General Staff's non-members only; Approve/
+    // Deny inside that page is gated separately, off the cascaded
+    // CurrentRole - see Requests.razor's own CanReview.)
+    // - General Staff: Home only
+    // - Facility Manager: General Staff's tabs, plus Daily Tasks and
+    //   Resource Requests (but can't approve/deny requests)
+    // - Secondary Admin: everything except User Management
     // - Admin: everything
-    private bool CanSeeMeetings => currentRole is "ManagementStaff" or "Admin";
-    private bool CanSeeUserManagement => currentRole is "SecondaryStaff" or "Admin";
-    private bool CanSeeEvents => currentRole is "ManagementStaff" or "Admin";
+    private bool CanSeeTasks => currentRole is "FacilityManager" or "SecondaryAdmin" or "Admin";
+    private bool CanSeeRequests => currentRole is "FacilityManager" or "SecondaryAdmin" or "Admin";
+    private bool CanSeeMeetings => currentRole is "SecondaryAdmin" or "Admin";
+    private bool CanSeeUserManagement => currentRole is "Admin";
+    private bool CanSeeEvents => currentRole is "SecondaryAdmin" or "Admin";
 
     // Drives MudThemeProvider so built-in MudBlazor components (buttons,
     // dialogs, tables, inputs, snackbars) switch palette automatically

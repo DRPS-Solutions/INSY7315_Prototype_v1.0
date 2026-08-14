@@ -362,9 +362,9 @@
                                     </div>
                                 }
 
-                                @* Approve/Deny only render for Admins, and only
-                                   while the request is still Pending. *@
-                                @if (IsAdmin && req.Status == RequestStatus.Pending)
+                                @* Approve/Deny only render for Admin/Secondary
+                                   Admin, and only while still Pending. *@
+                                @if (CanReview && req.Status == RequestStatus.Pending)
                                 {
                                     <div class="drps-request-actions">
                                         <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success" OnClick="@(() => ApproveRequest(req))">
@@ -390,17 +390,24 @@
    ===================================================================== *@
 @code {
     // Cascaded (by name) from MainLayout - see the CascadingValue wrapping
-    // @Body there. CurrentRole drives IsAdmin below; CurrentUserName is
-    // used to attribute new requests and admin reviews.
+    // @Body there. CurrentRole drives CanReview below; CurrentUserName is
+    // used to attribute new requests and reviews.
     [CascadingParameter(Name = "CurrentRole")]
     private string? CurrentRole { get; set; }
 
     [CascadingParameter(Name = "CurrentUserName")]
     private string? CurrentUserName { get; set; }
 
-    // Only Admins get Approve/Deny controls. Every other role can still
+    // Only Admin and Secondary Admin get Approve/Deny controls -
+    // Facility Manager can see this page (to submit/track requests) but
+    // can't review them. Every role that can reach this page can still
     // see full request history and who reviewed each one.
-    private bool IsAdmin => CurrentRole == "Admin";
+    private bool CanReview => CurrentRole is "Admin" or "SecondaryAdmin";
+
+    // Roles that want to hear about resource requests at all - Facility
+    // Manager explicitly gets none (not the "new request" broadcast,
+    // and not even the outcome of their own submitted request).
+    private static readonly SystemRole[] RequestNotificationRoles = { SystemRole.Admin, SystemRole.SecondaryAdmin };
 
     // --- Submission form state ---
     private RequestFormModel newRequest = new();
@@ -451,14 +458,18 @@
             Status = RequestStatus.Pending
         });
 
-        // Notify (in this prototype, notifications aren't scoped to a
-        // specific recipient - Admins would be the real audience for a
-        // "new request awaiting review" notification).
+        // Broadcast to every Admin/Secondary Admin - they're the ones
+        // who review requests, so they hear about every one submitted
+        // regardless of who submitted it. Facility Manager and General
+        // Staff never get this (Facility Manager is excluded from
+        // resource-request notifications entirely; General Staff can't
+        // reach this page in the first place).
         NotificationService.Add(
             NotificationType.ResourceRequest,
             "New resource request",
             $"{requestedBy} requested \"{title}\"" + (linkType != RequestLinkType.None && !string.IsNullOrWhiteSpace(linkedName) ? $" for {linkedName}." : "."),
-            linkType == RequestLinkType.None ? null : linkedName);
+            targetRoles: RequestNotificationRoles,
+            linkedName: linkType == RequestLinkType.None ? null : linkedName);
 
         // Reset the form, but keep the last-used resource type since
         // people often submit a few similar requests in a row.
@@ -472,7 +483,19 @@
     private IEnumerable<ResourceRequestItem> FilteredRequests =>
         activeFilter is null ? AppData.Requests : AppData.Requests.Where(r => r.Status == activeFilter);
 
-    // --- Admin review actions ---
+    // Only notify the original requester about the outcome of their own
+    // request if their role is one that hears about resource requests at
+    // all (Facility Manager is excluded entirely, per RequestNotificationRoles).
+    private IEnumerable<Guid> RequesterTarget(ResourceRequestItem req)
+    {
+        var requester = AppData.UserByName(req.RequestedBy);
+        if (requester is not null && RequestNotificationRoles.Contains(requester.SystemRole))
+        {
+            yield return requester.Id;
+        }
+    }
+
+    // --- Review actions (Admin/Secondary Admin only, per CanReview) ---
     // Approve needs no extra input, so it applies immediately.
     private void ApproveRequest(ResourceRequestItem req)
     {
@@ -483,11 +506,12 @@
             NotificationType.ResourceRequest,
             "Request approved",
             $"{reviewedBy} approved your \"{req.Title}\" request.",
-            req.LinkedName);
+            targetUserIds: RequesterTarget(req),
+            linkedName: req.LinkedName);
     }
 
-    // Deny opens DenyRequestDialog so the admin can optionally leave a
-    // reason. Cancelling the dialog leaves the request Pending.
+    // Deny opens DenyRequestDialog so the reviewer can optionally leave
+    // a reason. Cancelling the dialog leaves the request Pending.
     private async Task DenyRequest(ResourceRequestItem req)
     {
         var parameters = new DialogParameters<DenyRequestDialog>
@@ -510,7 +534,8 @@
                 NotificationType.ResourceRequest,
                 "Request denied",
                 $"{reviewedBy} denied your \"{req.Title}\" request.{reasonSuffix}",
-                req.LinkedName);
+                targetUserIds: RequesterTarget(req),
+                linkedName: req.LinkedName);
         }
     }
 

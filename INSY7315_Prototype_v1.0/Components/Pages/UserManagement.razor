@@ -475,9 +475,9 @@
                            new account can see (see MainLayout's
                            CanSeeMeetings/CanSeeUserManagement/CanSeeEvents). *@
                         <MudSelect T="SystemRole" Label="System Role" Variant="Variant.Outlined" @bind-Value="newUserSystemRole" Class="mb-3">
-                            <MudSelectItem Value="@SystemRole.BasicStaff">Basic Staff</MudSelectItem>
-                            <MudSelectItem Value="@SystemRole.SecondaryStaff">Secondary Staff</MudSelectItem>
-                            <MudSelectItem Value="@SystemRole.ManagementStaff">Management Staff</MudSelectItem>
+                            <MudSelectItem Value="@SystemRole.GeneralStaff">General Staff</MudSelectItem>
+                            <MudSelectItem Value="@SystemRole.FacilityManager">Facility Manager</MudSelectItem>
+                            <MudSelectItem Value="@SystemRole.SecondaryAdmin">Secondary Admin</MudSelectItem>
                             <MudSelectItem Value="@SystemRole.Admin">Admin</MudSelectItem>
                         </MudSelect>
 
@@ -505,7 +505,7 @@
     private string newUserUsername = string.Empty;
     private string newUserPassword = string.Empty;
     private string newUserRole = "Operations Coordinator";
-    private SystemRole newUserSystemRole = SystemRole.BasicStaff;
+    private SystemRole newUserSystemRole = SystemRole.GeneralStaff;
     private string newUserDepartment = "Admin";
 
     private IEnumerable<AppUser> FilteredEmployees =>
@@ -581,7 +581,7 @@
         newUserEmail = string.Empty;
         newUserUsername = string.Empty;
         newUserPassword = string.Empty;
-        newUserSystemRole = SystemRole.BasicStaff;
+        newUserSystemRole = SystemRole.GeneralStaff;
         showCreateUserScreen = false;
     }
 

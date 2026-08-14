@@ -4,6 +4,7 @@
 @implements IDisposable
 @inject IDialogService DialogService
 @inject AppDataService AppData
+@inject NotificationService NotificationService
 
 <PageTitle>Daily Tasks</PageTitle>
 
@@ -692,7 +693,7 @@
 
         if (result is not null && !result.Canceled && result.Data is NewTaskResult newTask)
         {
-            AppData.AddTask(new AppTask
+            var createdTask = AppData.AddTask(new AppTask
             {
                 Title = newTask.Title,
                 Description = newTask.Description,
@@ -705,6 +706,8 @@
                 LinkedEventId = newTask.LinkedEventId,
                 LinkedEventTitle = newTask.LinkedEventTitle
             });
+
+            NotifyAssignee(createdTask);
 
             // Jump the view to the day the new task was scheduled on,
             // so the user immediately sees it land in the timeline.
@@ -742,6 +745,8 @@
         }
         else if (result.Data is NewTaskResult edited)
         {
+            var previousAssignee = task.Assignee;
+
             AppData.UpdateTask(task, new AppTask
             {
                 Title = edited.Title,
@@ -756,11 +761,51 @@
                 LinkedEventTitle = edited.LinkedEventTitle
             });
 
+            // Only notify when the assignee actually changed - editing
+            // any other field shouldn't re-notify the same person.
+            if (!string.Equals(previousAssignee, task.Assignee, StringComparison.Ordinal))
+            {
+                NotifyAssignee(task);
+            }
+
             // Jump the view to the (possibly changed) date so the edit
             // is immediately visible, same as OnCreateTask does.
             selectedDate = edited.ScheduledStart.Date;
             weekStart = StartOfWeek(edited.ScheduledStart.Date);
         }
+    }
+
+    // Sends a personal "you were assigned this task" notification to a
+    // task's assignee, but only if their role actually wants to hear
+    // about this kind of task:
+    //   - GeneralStaff    -> only for AppTaskType.Daily tasks
+    //   - FacilityManager / SecondaryAdmin -> any task type
+    //   - Admin -> n/a (not assignable, excluded from SelectableEmployeeNames)
+    // Called on creation, and on edit only when the assignee changed
+    // (see OnOpenTaskDetails above).
+    private void NotifyAssignee(AppTask task)
+    {
+        var user = AppData.UserByName(task.Assignee);
+        if (user is null) return;
+
+        var wantsNotification = user.SystemRole switch
+        {
+            SystemRole.GeneralStaff => task.Type == AppTaskType.Daily,
+            SystemRole.FacilityManager or SystemRole.SecondaryAdmin => true,
+            _ => false
+        };
+        if (!wantsNotification) return;
+
+        var dateLabel = task.IsAllDay
+            ? task.ScheduledStart.ToString("dd MMM")
+            : task.ScheduledStart.ToString("dd MMM, h:mm tt");
+
+        NotificationService.Add(
+            NotificationType.TaskAssignment,
+            "New task assigned",
+            $"You were assigned \"{task.Title}\" on {dateLabel}.",
+            targetUserIds: new[] { user.Id },
+            linkedName: task.Title);
     }
 
     // All tasks belonging to the selected date (both all-day and
