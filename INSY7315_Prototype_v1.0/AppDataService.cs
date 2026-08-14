@@ -114,6 +114,31 @@ public class AppDataService
         NotifyStateChanged();
     }
 
+    // Applies edited field values (from TaskDetailsDialog) onto the
+    // existing AppTask instance - kept as one shared object (same Id)
+    // rather than replaced, so it stays the same reference other pages
+    // (Home, Events) already hold onto.
+    public void UpdateTask(AppTask task, AppTask edited)
+    {
+        task.Title = edited.Title;
+        task.Description = edited.Description;
+        task.ScheduledStart = edited.ScheduledStart;
+        task.IsAllDay = edited.IsAllDay;
+        task.Category = edited.Category;
+        task.Priority = edited.Priority;
+        task.Assignee = edited.Assignee;
+        task.Type = edited.Type;
+        task.LinkedEventId = edited.LinkedEventId;
+        task.LinkedEventTitle = edited.LinkedEventTitle;
+        NotifyStateChanged();
+    }
+
+    public void DeleteTask(AppTask task)
+    {
+        _tasks.Remove(task);
+        NotifyStateChanged();
+    }
+
     public IEnumerable<AppTask> TasksForDate(DateTime date) =>
         _tasks.Where(t => t.ScheduledStart.Date == date.Date);
 

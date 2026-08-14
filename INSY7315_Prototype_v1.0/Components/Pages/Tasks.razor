@@ -195,6 +195,23 @@
         gap: 12px;
         width: 280px;      /* fixed width so cards line up neatly when wrapping */
         flex-shrink: 0;
+        cursor: pointer;   /* clickable - opens TaskDetailsDialog */
+        transition: box-shadow 0.15s ease, transform 0.15s ease;
+    }
+
+    .drps-task-card:hover {
+        box-shadow: 0 4px 12px var(--drps-shadow);
+        transform: translateY(-1px);
+    }
+
+    /* All-day chips are clickable too, same as hourly task cards. */
+    .drps-allday-chip {
+        cursor: pointer;
+        transition: box-shadow 0.15s ease;
+    }
+
+    .drps-allday-chip:hover {
+        box-shadow: 0 4px 12px var(--drps-shadow);
     }
 
     /* Priority accent colors: red for urgent/high, amber for medium,
@@ -478,7 +495,8 @@
                 <span class="drps-allday-label">All day</span>
                 @foreach (var task in AllDayTasksForSelectedDay)
                 {
-                    <div class="drps-allday-chip priority-@task.Priority.ToString().ToLower() @(task.IsCompleted ? "done" : "")">
+                    <div class="drps-allday-chip priority-@task.Priority.ToString().ToLower() @(task.IsCompleted ? "done" : "")"
+                         @onclick="() => OnOpenTaskDetails(task)">
                         <MudIcon Icon="@GetCategoryIcon(task.Category)" Size="Size.Small" Class="drps-category-icon" />
                         <div>
                             <span class="drps-allday-title">@task.Title</span>
@@ -494,12 +512,16 @@
                             }
                         </div>
                         @* Same completion popup flow as the hourly cards - checking
-                           opens CompletedByDialog, unchecking clears it directly. *@
-                        <MudCheckBox T="bool"
-                                     Value="task.IsCompleted"
-                                     ValueChanged="@(v => OnToggleTask(task, v))"
-                                     Color="Color.Primary"
-                                     Size="Size.Small" />
+                           opens CompletedByDialog, unchecking clears it directly.
+                           stopPropagation keeps a checkbox click from also opening
+                           the details dialog underneath it. *@
+                        <div @onclick:stopPropagation="true">
+                            <MudCheckBox T="bool"
+                                         Value="task.IsCompleted"
+                                         ValueChanged="@(v => OnToggleTask(task, v))"
+                                         Color="Color.Primary"
+                                         Size="Size.Small" />
+                        </div>
                     </div>
                 }
             </div>
@@ -538,7 +560,8 @@
                             @* One card per task scheduled in this hour. *@
                             @foreach (var task in hourTasks)
                             {
-                                <div class="drps-task-card priority-@task.Priority.ToString().ToLower() @(task.IsCompleted ? "done" : "")">
+                                <div class="drps-task-card priority-@task.Priority.ToString().ToLower() @(task.IsCompleted ? "done" : "")"
+                                     @onclick="() => OnOpenTaskDetails(task)">
                                     <div>
                                         <div class="drps-task-title">@task.Title</div>
                                         <div class="drps-task-time">
@@ -560,12 +583,16 @@
                                     @* Checking the box does not mark the task done directly -
                                        it opens the completion popup (OnToggleTask) so the
                                        user can attribute who completed it. Unchecking clears
-                                       completion immediately with no prompt needed. *@
-                                    <MudCheckBox T="bool"
-                                                 Value="task.IsCompleted"
-                                                 ValueChanged="@(v => OnToggleTask(task, v))"
-                                                 Color="Color.Primary"
-                                                 Size="Size.Small" />
+                                       completion immediately with no prompt needed.
+                                       stopPropagation keeps a checkbox click from also
+                                       opening the details dialog underneath it. *@
+                                    <div @onclick:stopPropagation="true">
+                                        <MudCheckBox T="bool"
+                                                     Value="task.IsCompleted"
+                                                     ValueChanged="@(v => OnToggleTask(task, v))"
+                                                     Color="Color.Primary"
+                                                     Size="Size.Small" />
+                                    </div>
                                 </div>
                             }
                         }
@@ -683,6 +710,56 @@
             // so the user immediately sees it land in the timeline.
             selectedDate = newTask.ScheduledStart.Date;
             weekStart = StartOfWeek(newTask.ScheduledStart.Date);
+        }
+    }
+
+    // --- Task details/edit popup, via IDialogService/MudDialogProvider ---
+    // Fired by clicking anywhere on a task card/chip (but not its
+    // checkbox - see stopPropagation on that wrapper). Opens
+    // TaskDetailsDialog pre-filled with the clicked task; the result is
+    // either a saved edit (NewTaskResult, applied via AppData.UpdateTask),
+    // the delete sentinel (removes the task via AppData.DeleteTask), or
+    // nothing at all if the user just closes/cancels.
+    private async Task OnOpenTaskDetails(AppTask task)
+    {
+        var parameters = new DialogParameters<TaskDetailsDialog>
+        {
+            { x => x.Task, task }
+        };
+        var options = new DialogOptions { MaxWidth = MaxWidth.ExtraSmall, FullWidth = true, CloseOnEscapeKey = true };
+
+        var dialog = await DialogService.ShowAsync<TaskDetailsDialog>("Task details", parameters, options);
+        var result = await dialog.Result;
+
+        if (result is null || result.Canceled)
+        {
+            return;
+        }
+
+        if (result.Data is string sentinel && sentinel == TaskDetailsDialog.DeleteSentinel)
+        {
+            AppData.DeleteTask(task);
+        }
+        else if (result.Data is NewTaskResult edited)
+        {
+            AppData.UpdateTask(task, new AppTask
+            {
+                Title = edited.Title,
+                Description = edited.Description,
+                ScheduledStart = edited.ScheduledStart,
+                IsAllDay = edited.IsAllDay,
+                Category = edited.Category,
+                Priority = Enum.TryParse<TaskPriority>(edited.Priority, out var parsedPriority) ? parsedPriority : TaskPriority.Low,
+                Assignee = edited.Assignee,
+                Type = edited.Type == "Event" ? AppTaskType.Event : AppTaskType.Daily,
+                LinkedEventId = edited.LinkedEventId,
+                LinkedEventTitle = edited.LinkedEventTitle
+            });
+
+            // Jump the view to the (possibly changed) date so the edit
+            // is immediately visible, same as OnCreateTask does.
+            selectedDate = edited.ScheduledStart.Date;
+            weekStart = StartOfWeek(edited.ScheduledStart.Date);
         }
     }
 

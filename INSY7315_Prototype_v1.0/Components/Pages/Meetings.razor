@@ -95,6 +95,34 @@
         height: 100%;
     }
 
+    /* Meeting list rows open the details/playback view on click. */
+    .drps-meeting-row {
+        cursor: pointer;
+    }
+
+    .drps-playback-card {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        flex-shrink: 0;
+    }
+
+    .drps-playback-time {
+        font-size: 0.85rem;
+        color: rgba(255, 255, 255, 0.85);
+        font-variant-numeric: tabular-nums;
+        min-width: 92px;
+    }
+
+    .drps-playback-slider {
+        width: 160px;
+    }
+
+    .drps-playback-hint {
+        font-size: 0.72rem;
+        color: rgba(255, 255, 255, 0.65);
+    }
+
     .drps-card-title {
         font-weight: 600;
         color: var(--drps-navy-800);
@@ -234,7 +262,8 @@
             </div>
 
             <div class="drps-card">
-                <MudTable Items="AppData.Meetings" Hover="true" Striped="false" Elevation="0">
+                <MudTable T="Meeting" Items="AppData.Meetings" Hover="true" Striped="false" Elevation="0"
+                          RowClass="drps-meeting-row" OnRowClick="@((TableRowClickEventArgs<Meeting> e) => OpenExistingMeeting(e.Item))">
                     <HeaderContent>
                         <MudTh>Topic / Title</MudTh>
                         <MudTh>Date</MudTh>
@@ -266,39 +295,74 @@
                 </div>
 
                 <div class="drps-record-controls">
-                    <div class="drps-record-status">
-                        <span class="drps-record-dot @(isRecording ? "live" : "")"></span>
-                        @(isRecording ? "Recording" : hasRecorded ? "Stopped" : "Not started") &middot; @FormattedElapsed
-                    </div>
-
-                    @if (!isRecording)
+                    @if (!isViewingExisting)
                     {
+                        <div class="drps-record-status">
+                            <span class="drps-record-dot @(isRecording ? "live" : "")"></span>
+                            @(isRecording ? "Recording" : hasRecorded ? "Stopped" : "Not started") &middot; @FormattedElapsed
+                        </div>
+
+                        @if (!isRecording)
+                        {
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Primary"
+                                       StartIcon="@Icons.Material.Filled.FiberManualRecord"
+                                       OnClick="StartRecording">
+                                @(hasRecorded ? "Resume Recording" : "Start Recording")
+                            </MudButton>
+                        }
+                        else
+                        {
+                            <MudButton Variant="Variant.Filled"
+                                       Color="Color.Error"
+                                       StartIcon="@Icons.Material.Filled.Stop"
+                                       OnClick="StopRecording">
+                                Stop Recording
+                            </MudButton>
+                        }
+
                         <MudButton Variant="Variant.Filled"
-                                   Color="Color.Primary"
-                                   StartIcon="@Icons.Material.Filled.FiberManualRecord"
-                                   OnClick="StartRecording">
-                            @(hasRecorded ? "Resume Recording" : "Start Recording")
+                                   Color="Color.Success"
+                                   StartIcon="@Icons.Material.Filled.Check"
+                                   Disabled="@isRecording"
+                                   OnClick="CreateMeeting">
+                            Finish Meeting
                         </MudButton>
                     }
                     else
                     {
-                        <MudButton Variant="Variant.Filled"
-                                   Color="Color.Error"
-                                   StartIcon="@Icons.Material.Filled.Stop"
-                                   OnClick="StopRecording">
-                            Stop Recording
+                        @* --- Placeholder audio playback for a past meeting. No
+                           actual audio is stored in this prototype, so play just
+                           advances a fake position marker up to the meeting's
+                           recorded duration. --- *@
+                        <div class="drps-playback-card">
+                            <MudIconButton Icon="@(isPlaying ? Icons.Material.Filled.Pause : Icons.Material.Filled.PlayArrow)"
+                                           Color="Color.Surface"
+                                           Variant="Variant.Filled"
+                                           Disabled="@(playbackTotalSeconds <= 0)"
+                                           OnClick="TogglePlayback" />
+                            <MudSlider T="int"
+                                       Class="drps-playback-slider"
+                                       Min="0"
+                                       Max="@Math.Max(playbackTotalSeconds, 1)"
+                                       Value="playbackSeconds"
+                                       ValueChanged="OnScrubPlayback"
+                                       Color="Color.Primary" />
+                            <span class="drps-playback-time">@FormattedPlaybackPosition / @FormattedPlaybackTotal</span>
+                        </div>
+                        <MudButton Variant="Variant.Filled" Color="Color.Surface" OnClick="BackToList">
+                            Close
                         </MudButton>
                     }
-
-                    <MudButton Variant="Variant.Filled"
-                               Color="Color.Success"
-                               StartIcon="@Icons.Material.Filled.Check"
-                               Disabled="@isRecording"
-                               OnClick="CreateMeeting">
-                        Finish Meeting
-                    </MudButton>
                 </div>
             </div>
+
+            @if (isViewingExisting)
+            {
+                <div class="drps-playback-hint" style="margin:-14px 0 20px 4px;">
+                    Placeholder playback - audio isn't actually recorded/stored in this prototype.
+                </div>
+            }
 
             <MudGrid>
                 <MudItem xs="12" md="7">
@@ -415,6 +479,11 @@
 
     private bool showCreateScreen = false;
 
+    // True when the create/active screen is showing a meeting the user
+    // clicked on from the list (view/edit past minutes + placeholder
+    // playback), as opposed to a brand new in-progress recording.
+    private bool isViewingExisting = false;
+
     // The Meeting object being built while the create/active screen is
     // open. Title/minutes/notes bind directly onto it, and
     // GenerateTranscript writes straight into its Transcript property,
@@ -451,6 +520,89 @@
         recordingTimer?.Stop();
         recordingTimer?.Dispose();
         recordingTimer = null;
+    }
+
+    // --- Placeholder audio playback (view-existing-meeting mode) ---
+    // No real audio is stored anywhere in this prototype; playing just
+    // advances a fake position marker at 1 second/second up to the
+    // meeting's recorded Duration, so the UI reads and behaves like a
+    // real player without needing an actual audio backend.
+    private bool isPlaying = false;
+    private int playbackSeconds = 0;
+    private int playbackTotalSeconds = 0;
+    private System.Timers.Timer? playbackTimer;
+
+    private string FormattedPlaybackPosition => TimeSpan.FromSeconds(playbackSeconds).ToString(@"mm\:ss");
+    private string FormattedPlaybackTotal => TimeSpan.FromSeconds(playbackTotalSeconds).ToString(@"mm\:ss");
+
+    private void TogglePlayback()
+    {
+        if (isPlaying)
+        {
+            StopPlayback();
+            return;
+        }
+
+        // Restart from the beginning once it's already played through.
+        if (playbackSeconds >= playbackTotalSeconds)
+        {
+            playbackSeconds = 0;
+        }
+
+        isPlaying = true;
+        playbackTimer = new System.Timers.Timer(1000);
+        playbackTimer.Elapsed += (sender, args) =>
+        {
+            playbackSeconds++;
+            if (playbackSeconds >= playbackTotalSeconds)
+            {
+                playbackSeconds = playbackTotalSeconds;
+                StopPlayback();
+            }
+            InvokeAsync(StateHasChanged);
+        };
+        playbackTimer.Start();
+    }
+
+    // Stops the playback timer without resetting position, so pausing
+    // and hitting play again resumes from where it left off.
+    private void StopPlayback()
+    {
+        isPlaying = false;
+        playbackTimer?.Stop();
+        playbackTimer?.Dispose();
+        playbackTimer = null;
+    }
+
+    // Dragging the slider manually jumps playback to that position.
+    private void OnScrubPlayback(int value)
+    {
+        playbackSeconds = Math.Clamp(value, 0, Math.Max(playbackTotalSeconds, 0));
+    }
+
+    // Parses a Duration string into whole seconds. Handles both the
+    // "mm:ss" format produced by FormattedElapsed for freshly-recorded
+    // meetings, and the "N mins"/"N min" format used by seeded demo
+    // data - falls back to 0 (playback disabled) if neither matches.
+    private static int ParseDurationSeconds(string duration)
+    {
+        if (string.IsNullOrWhiteSpace(duration)) return 0;
+
+        var colonParts = duration.Split(':');
+        if (colonParts.Length == 2 &&
+            int.TryParse(colonParts[0], out var minutes) &&
+            int.TryParse(colonParts[1], out var seconds))
+        {
+            return minutes * 60 + seconds;
+        }
+
+        var digits = new string(duration.TakeWhile(c => char.IsDigit(c)).ToArray());
+        if (int.TryParse(digits, out var minsOnly))
+        {
+            return minsOnly * 60;
+        }
+
+        return 0;
     }
 
     private string noteInput = string.Empty;
@@ -512,7 +664,28 @@
     {
         activeMeeting = new Meeting();
         showCreateScreen = true;
+        isViewingExisting = false;
         ResetSessionState();
+    }
+
+    // Clicking a row in the meetings list - opens the same
+    // create/active screen, but in "view existing" mode: editing
+    // minutes/notes writes straight onto the real Meeting instance
+    // already sitting in AppData.Meetings (no separate save step
+    // needed), and the recording controls are swapped for a
+    // placeholder playback bar.
+    private void OpenExistingMeeting(Meeting meeting)
+    {
+        activeMeeting = meeting;
+        showCreateScreen = true;
+        isViewingExisting = true;
+        ResetSessionState();
+
+        hasRecorded = true;
+        playbackTotalSeconds = ParseDurationSeconds(meeting.Duration);
+        playbackSeconds = 0;
+        isPlaying = false;
+        transcriptReady = !string.IsNullOrWhiteSpace(meeting.Transcript);
     }
 
     private void CreateMeeting()
@@ -541,20 +714,26 @@
 
     private void BackToList()
     {
-        // Cancels the in-progress meeting without saving it to the list.
+        // Cancels the in-progress meeting without saving it to the list
+        // - but only when it's actually a new, not-yet-saved meeting.
+        // A meeting opened from the list is already in AppData.Meetings
+        // and was edited in place, so there's nothing to discard.
         if (isRecording)
         {
             StopRecording();
         }
+        StopPlayback();
 
         activeMeeting = null;
         ResetSessionState();
         showCreateScreen = false;
+        isViewingExisting = false;
     }
 
-    // Resets only the recording/transcript session state - the meeting's
-    // own data (title, minutes, notes, transcript) lives on activeMeeting
-    // itself and is reset simply by replacing it with a new Meeting().
+    // Resets only the recording/transcript/playback session state - the
+    // meeting's own data (title, minutes, notes, transcript) lives on
+    // activeMeeting itself and is reset simply by replacing it with a
+    // new Meeting() (or left untouched, for an existing meeting).
     private void ResetSessionState()
     {
         noteInput = string.Empty;
@@ -565,6 +744,10 @@
 
         transcriptReady = false;
         isGeneratingTranscript = false;
+
+        StopPlayback();
+        playbackSeconds = 0;
+        playbackTotalSeconds = 0;
     }
 
     // Re-render if meetings change elsewhere while this page is open.
@@ -578,5 +761,7 @@
         AppData.OnChange -= StateHasChanged;
         recordingTimer?.Stop();
         recordingTimer?.Dispose();
+        playbackTimer?.Stop();
+        playbackTimer?.Dispose();
     }
 }
