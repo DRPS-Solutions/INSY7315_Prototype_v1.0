@@ -56,5 +56,11 @@ INSY7315_Prototype_v1.0/
 └── wwwroot/               # Static assets, logo, Bootstrap
 ```
 
+## Youtube Demonstration Video Link
+
+https://youtu.be/iajl1yTe4pc
+
+This demonstration video is using the dev branch solution.
+
 ---
 *IIE Emeris — INSY7315*
