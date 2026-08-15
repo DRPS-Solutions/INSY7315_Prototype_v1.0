@@ -1,38 +1,39 @@
-# QULOOBUL MOE'MIENEEN — Prototype (v1.0)
+# QULOOBUL MOE'MIENEEN — Prototype (v1.0-dev)
 
-> **This is a visual prototype.** Every screen is built and navigable, but the data behind it is fixed placeholder content — nothing you do here is saved or shared between pages. **For a more interactive prototype, switch to the `dev` branch**, where the same screens run on shared, editable data.
+**High-fidelity, fully interactive prototype.** There's still no real database behind it, but every screen shares one in-memory data layer, so actions on one page genuinely affect the others — this branch is the one to explore if you want to see the system actually *work*, not just look right.
 
 ## What this is
 
-QULOOBUL MOE'MIENEEN is a Blazor Server prototype of an NPO operations tool — daily tasks, resource requests, meetings, event planning, and user management, wrapped in a role-based sign-in flow. This `master` branch is the **visual reference build**: it exists to show what the finished application looks and feels like, screen by screen, without the overhead of a working backend.
+QULOOBUL MOE'MIENEEN is a Blazor Server prototype of an NPO operations tool — daily tasks, resource requests, meetings, event planning, user management, and live notifications, wrapped in a role-based sign-in flow. This `dev` branch takes the visual design shown on `master` and wires it up to a shared, in-memory data service, so the prototype behaves like a real multi-user application for demo purposes.
 
-## What it demonstrates
+## What makes it interactive
 
-- **Role-based sign-in** — a name/role picker (no password) that drops the signed-in user straight into the shell, with the navigation menu adjusting to what that role can see.
-- **Four staff roles** — Basic Staff, Secondary Staff, Management Staff, and Admin — each surfacing a different slice of the navigation:
-  - *Basic Staff*: Home, Daily Tasks, Resource Requests
-  - *Secondary Staff*: the above, plus User Management
-  - *Management Staff*: everything except User Management
-  - *Admin*: every tab
-- **The full page set**: Home dashboard, Daily Tasks, Resource Requests, Meetings, Event Planning, User Management, and Notifications.
-- **Light/dark mode** and a horizontal/vertical navigation toggle.
-- **MudBlazor-driven UI** — cards, dialogs, tables, and menus styled to match the intended production look.
+- **Real sign-in against seeded accounts** — usernames and passwords are checked against a seeded user list (`AppDataService`), with one-click demo-account chips on the login screen so you can try each role without hunting for credentials.
+- **One shared data layer, not per-page placeholders** — `AppDataService` is a Singleton, so every signed-in session sees and edits the same pool of tasks, events, requests, and meetings. Concretely:
+  - Completing a task on **Home** updates it on **Daily Tasks**, and vice versa.
+  - Creating an **Event** makes it selectable from the Requests page's "link to an event" dropdown and from the New Task dialog.
+  - Approving or denying a **Resource Request** is reflected wherever that request appears.
+- **Live notifications** — the bell icon in the nav bar tracks unread counts per signed-in user via `NotificationService` (a Singleton, routed by user/role) and updates instantly when something elsewhere in the app triggers a notification, no refresh needed.
+- **Four staff roles**, each with a distinct navigation footprint:
+  - *General Staff*: Home only
+  - *Facility Manager*: General Staff's tabs, plus Daily Tasks and Resource Requests (view only — can't approve/deny)
+  - *Secondary Admin*: everything except User Management
+  - *Admin*: everything, including approve/deny on Resource Requests
+- **Light/dark mode** and a horizontal/vertical navigation toggle, same as `master`.
+- Additional interaction surfaces not present on `master`: a **Task Details dialog**, a full **Models** layer (`AppModels.cs`) backing every entity, and role-aware gating logic that lives centrally in `MainLayout` rather than being re-derived per page.
 
-## What it does *not* do
+## What it still doesn't do
 
-This branch is intentionally placeholder-only:
-
-- No database, no persistence — nothing you create, edit, or complete survives a page refresh.
-- Each page holds its **own hardcoded sample list** (tasks, requests, meetings, etc.), so actions on one page don't affect another — completing a task on Home, for instance, won't update the Daily Tasks page.
-- Sign-in accepts any name and doesn't check a password — it's a role switcher, not real authentication.
-
-If you want to see the app actually behave like a system — shared data, live notifications, cross-page effects — that's what the `dev` branch prototype is for.
+- No real database — everything lives in memory for the lifetime of the running app and resets the moment it restarts.
+- No network/API layer — this is a single-process demo, not a client-server split.
 
 ## Tech stack
 
 - **.NET 10** / Blazor Server (Interactive Server render mode)
 - **MudBlazor 9.7** for the component library
 - Bootstrap for base layout/reset styling
+- `AppDataService` (Singleton) — shared in-memory store for users, tasks, events, requests, and meetings
+- `NotificationService` (Singleton) — role/user-targeted live notification routing
 
 ## Running it
 
@@ -41,20 +42,29 @@ dotnet restore
 dotnet run --project INSY7315_Prototype_v1.0
 ```
 
-Then open the app in your browser (the launch URL is printed in the console) and sign in with any name — pick any role from the dropdown to preview that role's navigation.
+Open the app in your browser (the launch URL is printed in the console). On the sign-in screen, click any of the demo-account chips to auto-fill credentials for that role, then hit **Log In** — or explore Requests, Tasks, or Events across two roles side by side to see the shared data layer in action.
 
 ## Project structure
 
 ```
 INSY7315_Prototype_v1.0/
+├── AppDataService.cs      # Shared in-memory data layer (users, tasks, events, requests, meetings)
+├── Models/
+│   └── AppModels.cs       # Entity models backing AppDataService
 ├── Components/
-│   ├── Layout/          # MainLayout (sign-in + shell), NavMenu, ReconnectModal
-│   └── Pages/            # Home, Tasks, Meetings, Events, Requests, UserManagement, Notifications
+│   ├── Layout/             # MainLayout (real login + shell), NavMenu, ReconnectModal
+│   └── Pages/               # Home, Tasks, Meetings, Events, Requests, UserManagement,
+│                             #   Notifications, plus dialogs (CreateTask, TaskDetails,
+│                             #   CompletedBy, DenyRequest)
 ├── NewTaskResult.cs
 ├── Notificationservice.cs
 ├── Program.cs
-└── wwwroot/               # Static assets, logo, Bootstrap
+└── wwwroot/                 # Static assets, logo, Bootstrap
 ```
+
+## Relation to `master`
+
+`master` is the visual-only prototype — same screens, hardcoded placeholder data per page, no persistence or cross-page effects. This `dev` branch is where those same screens were made to actually interact with each other through a shared data layer. If you only need to see what the app looks like, `master` is lighter to read through; if you want to see it behave like a system, stay here.
 
 ---
 *IIE Varsity College — INSY7315*
