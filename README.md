@@ -57,4 +57,4 @@ INSY7315_Prototype_v1.0/
 ```
 
 ---
-*IIE Varsity College — INSY7315*
+*IIE Emeris — INSY7315*
