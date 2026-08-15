@@ -66,5 +66,9 @@ INSY7315_Prototype_v1.0/
 
 `master` is the visual-only prototype — same screens, hardcoded placeholder data per page, no persistence or cross-page effects. This `dev` branch is where those same screens were made to actually interact with each other through a shared data layer. If you only need to see what the app looks like, `master` is lighter to read through; if you want to see it behave like a system, stay here.
 
+## Youtube Demonstration Video Link
+
+https://youtu.be/iajl1yTe4pc
+
 ---
-*IIE Varsity College — INSY7315*
+*Emeris — INSY7315*
